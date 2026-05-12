@@ -1,0 +1,49 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { LangProvider } from '@/contexts/LangContext';
+import { ProblemDetail } from '@/pages/ProblemDetail';
+import { trpc } from '@/lib/trpc';
+
+vi.mock('@/lib/trpc', () => ({
+  trpc: { problems: { getBySlug: { useQuery: vi.fn() } } },
+}));
+
+describe('ProblemDetail', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => cleanup());
+  it('renders title and difficulty', () => {
+    (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        id: 1,
+        frontendId: 1,
+        titleEn: 'Two Sum',
+        titleZh: '两数之和',
+        titleSlug: 'two-sum',
+        difficulty: 'Easy',
+        contentEn: '<p>desc</p>',
+        codeSnippetsJson: [],
+      },
+      isLoading: false,
+    });
+    window.localStorage.removeItem('lt.lang');
+    render(
+      <LangProvider>
+        <ProblemDetail titleSlug="two-sum" />
+      </LangProvider>,
+    );
+    expect(screen.getByText('Two Sum')).toBeInTheDocument();
+    expect(screen.getByText('Easy')).toBeInTheDocument();
+  });
+  it('renders empty state when null', () => {
+    (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: null,
+      isLoading: false,
+    });
+    render(
+      <LangProvider>
+        <ProblemDetail titleSlug="missing" />
+      </LangProvider>,
+    );
+    expect(screen.getByText(/No data yet/)).toBeInTheDocument();
+  });
+});

@@ -1,0 +1,257 @@
+import { LEETCODE_CN_GRAPHQL, COMPANY_SLUG_MAP } from './constants';
+import { registerSyncTasks } from './orchestrator';
+import {
+  fetchListProblems,
+  fetchQuestionDetailEn,
+  fetchQuestionDetailZh,
+  fetchOfficialSolutionZh,
+} from './leetcode';
+import { fetchCompanyCsv, knownCompanyDirNames } from './liquidslr';
+import { translateContentToZh } from './translation';
+import * as db from '../db';
+
+let _probeFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis);
+export function __setProbeFetchForTest(fn: typeof globalThis.fetch | undefined) {
+  _probeFetch = fn ?? globalThis.fetch.bind(globalThis);
+}
+
+const PROBE_QUERY = `query q($titleSlug:String!){question(titleSlug:$titleSlug){translatedTitle}}`;
+const PROBE_SLUGS = ['two-sum', 'add-two-numbers', 'reverse-integer'];
+
+export async function probeLeetcodeCn(): Promise<{ available: boolean; succeeded: number }> {
+  let ok = 0;
+  for (const slug of PROBE_SLUGS) {
+    try {
+      const res = await _probeFetch(LEETCODE_CN_GRAPHQL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: PROBE_QUERY, variables: { titleSlug: slug } }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { data?: { question?: { translatedTitle?: string } } };
+        if (json?.data?.question?.translatedTitle) ok++;
+      }
+    } catch {
+      // ignore individual failures
+    }
+  }
+  return { available: ok >= 2, succeeded: ok };
+}
+
+async function taskInitialBootstrap() {
+  let processed = 0;
+  let ok = 0;
+  let failed = 0;
+
+  const lists: { slug: string; titleEn: string; titleZh: string }[] = [
+    { slug: 'top-100-liked', titleEn: 'Hot 100', titleZh: '热题 100' },
+    { slug: 'top-interview-150', titleEn: 'Top Interview 150', titleZh: '面试经典 150 题' },
+  ];
+  const skipCn = process.env.BOOTSTRAP_SKIP_CN === '1';
+  const skipLlm = process.env.BOOTSTRAP_SKIP_LLM === '1';
+  const cnAvailable = skipCn ? false : (await probeLeetcodeCn()).available;
+
+  for (const l of lists) {
+    try {
+      const items = await fetchListProblems(l.slug);
+      const listId = await db.upsertProblemList({
+        slug: l.slug,
+        titleEn: l.titleEn,
+        titleZh: l.titleZh,
+        source: 'leetcode-list',
+      });
+      let pos = 0;
+      for (const it of items) {
+        await db.upsertProblem({
+          frontendId: it.frontendId,
+          titleSlug: it.titleSlug,
+          titleEn: it.titleEn,
+          difficulty: it.difficulty,
+          paidOnly: it.paidOnly,
+          acRate: String(it.acRate),
+          topicTagsJson: it.topicTagsJson,
+        });
+        const p = await db.getProblemBySlug(it.titleSlug);
+        if (p) {
+          await db.upsertProblemListItem({ listId, problemId: p.id, position: pos++ });
+          try {
+            const en = await fetchQuestionDetailEn(it.titleSlug);
+            if (en) {
+              let zhTitle: string | null = null;
+              let zhContent: string | null = null;
+              let source: 'leetcode-cn' | 'llm-translated' | null = null;
+              if (cnAvailable) {
+                const zh = await fetchQuestionDetailZh(it.titleSlug);
+                if (zh) {
+                  zhTitle = zh.titleZh;
+                  zhContent = zh.contentZh;
+                  source = 'leetcode-cn';
+                }
+              }
+              if (!zhContent && en.contentEn && !skipLlm) {
+                zhContent = await translateContentToZh(en.contentEn);
+                if (zhContent) source = 'llm-translated';
+              }
+              await db.upsertProblem({
+                frontendId: it.frontendId,
+                titleSlug: it.titleSlug,
+                titleEn: it.titleEn,
+                difficulty: it.difficulty,
+                paidOnly: it.paidOnly,
+                titleZh: zhTitle ?? undefined,
+                contentEn: en.contentEn,
+                contentZh: zhContent ?? undefined,
+                contentZhSource: source ?? undefined,
+                hintsJson: en.hintsJson,
+                exampleTestcases: en.exampleTestcases ?? undefined,
+                topicTagsJson: en.topicTagsJson,
+                similarQuestionsJson: en.similarQuestionsJson,
+                codeSnippetsJson: en.codeSnippetsJson,
+                contentFetchedAt: new Date(),
+              });
+              if (cnAvailable) {
+                const sol = await fetchOfficialSolutionZh(it.titleSlug);
+                if (sol) {
+                  await db.upsertProblemSolution({
+                    problemId: p.id,
+                    source: 'leetcode-cn-official',
+                    language: 'zh',
+                    contentMarkdown: sol,
+                  });
+                }
+              }
+            }
+            ok++;
+          } catch {
+            failed++;
+          }
+          processed++;
+        }
+      }
+    } catch {
+      failed++;
+    }
+  }
+
+  for (const dir of knownCompanyDirNames()) {
+    try {
+      const rows = await fetchCompanyCsv(dir, 'all');
+      for (const row of rows) {
+        const p = await db.getProblemBySlug(row.titleSlug);
+        if (!p) {
+          await db.upsertProblem({
+            frontendId: -1,
+            titleSlug: row.titleSlug,
+            titleEn: row.title,
+            difficulty: row.difficulty,
+            paidOnly: false,
+          });
+        }
+        const fresh = await db.getProblemBySlug(row.titleSlug);
+        if (fresh) {
+          await db.upsertCompanyTag({
+            problemId: fresh.id,
+            companySlug: COMPANY_SLUG_MAP[dir] ?? dir.toLowerCase(),
+            companyName: dir,
+            frequency: String(row.frequency),
+            timeframe: 'all',
+            source: 'liquidslr',
+          });
+        }
+      }
+      ok++;
+    } catch {
+      failed++;
+    }
+    processed++;
+  }
+  return { itemsProcessed: processed, itemsSucceeded: ok, itemsFailed: failed };
+}
+
+async function taskDailySyncLists() {
+  let p = 0;
+  let o = 0;
+  let f = 0;
+  for (const slug of ['top-100-liked', 'top-interview-150']) {
+    try {
+      const items = await fetchListProblems(slug);
+      const list = await db.upsertProblemList({
+        slug,
+        titleEn: slug,
+        titleZh: slug,
+        source: 'leetcode-list',
+      });
+      let pos = 0;
+      for (const it of items) {
+        await db.upsertProblem({
+          frontendId: it.frontendId,
+          titleSlug: it.titleSlug,
+          titleEn: it.titleEn,
+          difficulty: it.difficulty,
+          paidOnly: it.paidOnly,
+          acRate: String(it.acRate),
+        });
+        const probe = await db.getProblemBySlug(it.titleSlug);
+        if (probe) await db.upsertProblemListItem({ listId: list, problemId: probe.id, position: pos++ });
+        o++;
+      }
+    } catch {
+      f++;
+    }
+    p++;
+  }
+  return { itemsProcessed: p, itemsSucceeded: o, itemsFailed: f };
+}
+
+async function taskDailySyncCompanies() {
+  let p = 0;
+  let o = 0;
+  let f = 0;
+  for (const dir of knownCompanyDirNames()) {
+    try {
+      const rows = await fetchCompanyCsv(dir, 'all');
+      for (const row of rows) {
+        const fresh = await db.getProblemBySlug(row.titleSlug);
+        if (fresh) {
+          await db.upsertCompanyTag({
+            problemId: fresh.id,
+            companySlug: COMPANY_SLUG_MAP[dir] ?? dir.toLowerCase(),
+            companyName: dir,
+            frequency: String(row.frequency),
+            timeframe: 'all',
+            source: 'liquidslr',
+          });
+        }
+      }
+      o++;
+    } catch {
+      f++;
+    }
+    p++;
+  }
+  return { itemsProcessed: p, itemsSucceeded: o, itemsFailed: f };
+}
+
+async function taskDailySyncMeta() {
+  return { itemsProcessed: 0, itemsSucceeded: 0, itemsFailed: 0 };
+}
+
+async function taskManual() {
+  return await taskInitialBootstrap();
+}
+
+async function taskProbe() {
+  const r = await probeLeetcodeCn();
+  return { itemsProcessed: 3, itemsSucceeded: r.succeeded, itemsFailed: 3 - r.succeeded };
+}
+
+registerSyncTasks({
+  'initial-bootstrap': taskInitialBootstrap,
+  'daily-sync-lists': taskDailySyncLists,
+  'daily-sync-companies': taskDailySyncCompanies,
+  'daily-sync-meta': taskDailySyncMeta,
+  manual: taskManual,
+  'probe-leetcode-cn': taskProbe,
+});
+
+export { runSync } from './orchestrator';
