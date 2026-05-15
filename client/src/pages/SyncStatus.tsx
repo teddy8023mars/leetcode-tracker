@@ -37,6 +37,11 @@ export function SyncStatus() {
       toast.error(t('sync.triggerFailed') + ': ' + e.message);
     },
   });
+  const cancel = trpc.sync.cancel.useMutation({
+    onSuccess: () => {
+      utils.sync.status.invalidate();
+    },
+  });
   const rows = (q.data ?? []) as SyncRow[];
 
   return (
@@ -91,16 +96,28 @@ export function SyncStatus() {
             return (
               <tr key={r.id} className="border-t border-border">
                 <td className="py-2 pr-3 font-mono">{r.syncType}</td>
-                <td className="pr-3">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded font-mono text-[11px] ${
-                      STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
-                    }`}
-                  >
-                    {t(`sync.status.${r.status}`) === `sync.status.${r.status}`
-                      ? r.status
-                      : t(`sync.status.${r.status}`)}
-                  </span>
+                <td className="pr-3 w-28">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block w-16 text-center px-2 py-0.5 rounded font-mono text-[11px] ${
+                        STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
+                      }`}
+                    >
+                      {t(`sync.status.${r.status}`) === `sync.status.${r.status}`
+                        ? r.status
+                        : t(`sync.status.${r.status}`)}
+                    </span>
+                    {isRunning && user && (
+                      <button
+                        type="button"
+                        onClick={() => cancel.mutate({ syncLogId: r.id })}
+                        disabled={cancel.isPending}
+                        className="text-[11px] text-red-500 hover:text-red-700 font-mono"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="pr-3 font-mono">
                   {pct !== null ? (
