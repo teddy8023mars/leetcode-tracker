@@ -1,4 +1,5 @@
 import { LEETCODE_CN_GRAPHQL, COMPANY_SLUG_MAP } from './constants';
+import { taskAiPregenerate } from './aiPregenerate';
 import { registerSyncTasks } from './orchestrator';
 import {
   fetchListProblems,
@@ -252,6 +253,7 @@ registerSyncTasks({
   'daily-sync-meta': taskDailySyncMeta,
   manual: taskManual,
   'probe-leetcode-cn': taskProbe,
+  'ai-pregenerate': taskAiPregenerate,
 });
 
 export { runSync } from './orchestrator';
