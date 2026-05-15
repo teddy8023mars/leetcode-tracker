@@ -125,6 +125,10 @@ if not method_name:
     sys.exit(0)
 
 def norm(x):
+    if x is None and _convert_mode in ('linked', 'nested_linked'):
+        return []
+    if x is None and _convert_mode in ('tree', 'nested_tree'):
+        return []
     if isinstance(x, ListNode):
         return _linked_to_list(x)
     if isinstance(x, TreeNode):
@@ -136,7 +140,7 @@ def norm(x):
     return x
 
 # Auto-detect if args need ListNode/TreeNode conversion using a probe call
-_convert_mode = 'raw'  # 'raw', 'linked', 'tree'
+_convert_mode = 'raw'  # 'raw', 'linked', 'tree', 'nested_linked', 'nested_tree'
 _first_case_args = cases[0].get("input") or cases[0].get("args") or [] if cases else []
 if isinstance(_first_case_args, list) and any(isinstance(a, list) for a in _first_case_args):
     _probe_inst = Solution()
@@ -145,23 +149,48 @@ if isinstance(_first_case_args, list) and any(isinstance(a, list) for a in _firs
         try:
             _probe_method(*_first_case_args)
         except (TypeError, AttributeError):
+            # Try flat linked: each list arg -> ListNode
             _linked_args = [_list_to_linked(a) if isinstance(a, list) else a for a in _first_case_args]
             try:
                 _probe_inst2 = Solution()
-                _probe_method2 = getattr(_probe_inst2, method_name)
-                _probe_method2(*_linked_args)
+                getattr(_probe_inst2, method_name)(*_linked_args)
                 _convert_mode = 'linked'
             except (TypeError, AttributeError):
-                _convert_mode = 'tree'
+                # Try nested linked: list of lists -> list of ListNodes
+                _nested_args = [
+                    [_list_to_linked(sub) if isinstance(sub, list) else sub for sub in a] if isinstance(a, list) and any(isinstance(sub, list) for sub in a) else (_list_to_linked(a) if isinstance(a, list) else a)
+                    for a in _first_case_args
+                ]
+                try:
+                    _probe_inst3 = Solution()
+                    getattr(_probe_inst3, method_name)(*_nested_args)
+                    _convert_mode = 'nested_linked'
+                except (TypeError, AttributeError):
+                    _convert_mode = 'tree'
         except Exception:
             pass
 
-def _convert_args(args):
+def _convert_one(a):
+    if not isinstance(a, list):
+        return a
     if _convert_mode == 'linked':
-        return [_list_to_linked(a) if isinstance(a, list) else a for a in args]
+        return _list_to_linked(a)
     if _convert_mode == 'tree':
-        return [_list_to_tree(a) if isinstance(a, list) else a for a in args]
-    return args
+        return _list_to_tree(a)
+    if _convert_mode == 'nested_linked':
+        if any(isinstance(sub, list) for sub in a):
+            return [_list_to_linked(sub) if isinstance(sub, list) else sub for sub in a]
+        return _list_to_linked(a)
+    if _convert_mode == 'nested_tree':
+        if any(isinstance(sub, list) for sub in a):
+            return [_list_to_tree(sub) if isinstance(sub, list) else sub for sub in a]
+        return _list_to_tree(a)
+    return a
+
+def _convert_args(args):
+    if _convert_mode == 'raw':
+        return args
+    return [_convert_one(a) for a in args]
 
 passed = 0
 total = len(cases)
