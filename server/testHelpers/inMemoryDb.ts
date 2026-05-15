@@ -154,6 +154,7 @@ export interface InMemoryDb {
 
 export function createInMemoryDb(): InMemoryDb {
   const sqlite = new Database(':memory:');
+  sqlite.pragma('foreign_keys = ON');
   sqlite.exec(SCHEMA_SQL);
   return { sqlite };
 }
