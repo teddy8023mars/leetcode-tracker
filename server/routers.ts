@@ -7,6 +7,7 @@ import { listsRouter } from "./routers/lists";
 import { companiesRouter } from "./routers/companies";
 import { syncRouter } from "./routers/sync";
 import { judgeRouter } from "./routers/judge";
+import { aiSolutionsRouter } from "./routers/aiSolutions";
 
 export const appRouter = router({
   system: systemRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   companies: companiesRouter,
   sync: syncRouter,
   judge: judgeRouter,
+  aiSolutions: aiSolutionsRouter,
 });
 
 export type AppRouter = typeof appRouter;
