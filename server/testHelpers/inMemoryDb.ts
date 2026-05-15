@@ -35,7 +35,7 @@ CREATE TABLE problems (
 );
 CREATE TABLE problemSolutions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  problemId INTEGER NOT NULL,
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   source TEXT NOT NULL,
   language TEXT NOT NULL,
   contentMarkdown TEXT NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE problemSolutions (
 );
 CREATE TABLE companyTags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  problemId INTEGER NOT NULL,
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   companySlug TEXT NOT NULL,
   companyName TEXT NOT NULL,
   frequency REAL,
@@ -63,14 +63,14 @@ CREATE TABLE problemLists (
 );
 CREATE TABLE problemListItems (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  listId INTEGER NOT NULL,
-  problemId INTEGER NOT NULL,
+  listId INTEGER NOT NULL REFERENCES problemLists(id),
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   position INTEGER NOT NULL,
   UNIQUE(listId, problemId)
 );
 CREATE TABLE aiSolutions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  problemId INTEGER NOT NULL,
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   language TEXT NOT NULL,
   approachMarkdown TEXT NOT NULL,
   complexityMarkdown TEXT NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE aiSolutions (
 );
 CREATE TABLE aiGenerationLocks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  problemId INTEGER NOT NULL,
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   language TEXT NOT NULL,
   lockedAt TEXT DEFAULT CURRENT_TIMESTAMP,
   lockedUntil TEXT NOT NULL,
@@ -92,8 +92,8 @@ CREATE TABLE aiGenerationLocks (
 );
 CREATE TABLE userProgress (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  userId INTEGER NOT NULL,
-  problemId INTEGER NOT NULL,
+  userId INTEGER NOT NULL REFERENCES users(id),
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   status TEXT DEFAULT 'todo',
   noteMarkdown TEXT,
   reviewIntervalDays INTEGER DEFAULT 0,
@@ -107,8 +107,8 @@ CREATE TABLE userProgress (
 );
 CREATE TABLE attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  userId INTEGER NOT NULL,
-  problemId INTEGER NOT NULL,
+  userId INTEGER NOT NULL REFERENCES users(id),
+  problemId INTEGER NOT NULL REFERENCES problems(id),
   attemptedAt TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE syncLogs (
@@ -122,6 +122,29 @@ CREATE TABLE syncLogs (
   itemsFailed INTEGER DEFAULT 0,
   errorSummary TEXT,
   metaJson TEXT
+);
+CREATE TABLE problemTestcases (
+  problemId INTEGER PRIMARY KEY REFERENCES problems(id),
+  suiteJson TEXT NOT NULL,
+  generatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  source TEXT DEFAULT 'llm'
+);
+CREATE TABLE submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL REFERENCES users(id),
+  problemId INTEGER NOT NULL REFERENCES problems(id),
+  language TEXT NOT NULL,
+  code TEXT NOT NULL,
+  verdict TEXT NOT NULL,
+  passedCount INTEGER DEFAULT 0,
+  totalCount INTEGER DEFAULT 0,
+  firstFailInput TEXT,
+  firstFailExpected TEXT,
+  firstFailActual TEXT,
+  resultJson TEXT,
+  aiReviewMarkdown TEXT,
+  runtimeMs INTEGER,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `;
 
