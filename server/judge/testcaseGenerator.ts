@@ -135,7 +135,31 @@ export async function generateTestcaseSuite(p: ProblemPromptInput): Promise<Gene
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userMsg },
     ],
-    response_format: { type: "json_object" },
+    responseFormat: {
+      type: "json_schema",
+      json_schema: {
+        name: "test_suite",
+        schema: {
+          type: "object",
+          properties: {
+            methodName: { type: "string" },
+            referenceSolution: { type: "string" },
+            cases: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  input: { type: "array" },
+                  expected: {},
+                },
+                required: ["input", "expected"],
+              },
+            },
+          },
+          required: ["methodName", "referenceSolution", "cases"],
+        },
+      },
+    },
   });
 
   const content = (resp as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;
