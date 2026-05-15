@@ -28,6 +28,64 @@ from typing import List, Dict, Set, Tuple, Optional, Deque, Any, Union, Callable
 from collections import defaultdict, Counter, deque, OrderedDict
 import math, heapq, bisect, itertools, functools, re, string, random
 
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+def _list_to_linked(arr):
+    if not arr: return None
+    head = ListNode(arr[0])
+    cur = head
+    for v in arr[1:]:
+        cur.next = ListNode(v)
+        cur = cur.next
+    return head
+
+def _linked_to_list(node):
+    res = []
+    while node:
+        res.append(node.val)
+        node = node.next
+    return res
+
+def _list_to_tree(arr):
+    if not arr or arr[0] is None: return None
+    root = TreeNode(arr[0])
+    q = deque([root])
+    i = 1
+    while q and i < len(arr):
+        node = q.popleft()
+        if i < len(arr) and arr[i] is not None:
+            node.left = TreeNode(arr[i])
+            q.append(node.left)
+        i += 1
+        if i < len(arr) and arr[i] is not None:
+            node.right = TreeNode(arr[i])
+            q.append(node.right)
+        i += 1
+    return root
+
+def _tree_to_list(root):
+    if not root: return []
+    res, q = [], deque([root])
+    while q:
+        node = q.popleft()
+        if node:
+            res.append(node.val)
+            q.append(node.left)
+            q.append(node.right)
+        else:
+            res.append(None)
+    while res and res[-1] is None: res.pop()
+    return res
+
 USER_CODE = __USER_CODE__
 
 # Execute user code in a namespace that already contains the imports above.
@@ -67,16 +125,49 @@ if not method_name:
     sys.exit(0)
 
 def norm(x):
+    if isinstance(x, ListNode):
+        return _linked_to_list(x)
+    if isinstance(x, TreeNode):
+        return _tree_to_list(x)
     if isinstance(x, tuple):
         return [norm(e) for e in x]
     if isinstance(x, list):
         return [norm(e) for e in x]
     return x
 
+# Detect which params expect ListNode/TreeNode from the method signature
+import inspect as _ins
+_sol_tmp = Solution()
+_method_tmp = getattr(_sol_tmp, method_name, None)
+_param_hints = {}
+if _method_tmp:
+    try:
+        _hints = _ins.get_annotations(_method_tmp.__func__ if hasattr(_method_tmp, '__func__') else _method_tmp)
+        _sig = _ins.signature(_method_tmp)
+        for _pi, (_pn, _pp) in enumerate(list(_sig.parameters.items())):
+            _h = _hints.get(_pn)
+            if _h is ListNode or (_h and getattr(_h, '__name__', '') == 'ListNode'):
+                _param_hints[_pi] = 'ListNode'
+            elif _h is TreeNode or (_h and getattr(_h, '__name__', '') == 'TreeNode'):
+                _param_hints[_pi] = 'TreeNode'
+            elif isinstance(_h, str) and 'ListNode' in _h:
+                _param_hints[_pi] = 'ListNode'
+            elif isinstance(_h, str) and 'TreeNode' in _h:
+                _param_hints[_pi] = 'TreeNode'
+    except Exception:
+        pass
+
+def _convert_arg(idx, val):
+    hint = _param_hints.get(idx)
+    if hint == 'ListNode' and isinstance(val, list):
+        return _list_to_linked(val)
+    if hint == 'TreeNode' and isinstance(val, list):
+        return _list_to_tree(val)
+    return val
+
 passed = 0
 total = len(cases)
 for i, c in enumerate(cases):
-    # Accept both 'input' (our schema) and 'args' (what GPT often produces)
     args = c.get("input")
     if args is None:
         args = c.get("args", [])
@@ -84,6 +175,7 @@ for i, c in enumerate(cases):
         args = []
     if not isinstance(args, list):
         args = [args]
+    args = [_convert_arg(ai, av) for ai, av in enumerate(args)]
     expected = c.get("expected")
     inst = Solution()
     method = getattr(inst, method_name, None)
