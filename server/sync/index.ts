@@ -56,11 +56,15 @@ async function taskInitialBootstrap() {
   ];
   const skipCn = process.env.BOOTSTRAP_SKIP_CN === '1';
   const skipLlm = process.env.BOOTSTRAP_SKIP_LLM === '1';
+  console.log('[bootstrap] probing leetcode.cn...');
   const cnAvailable = skipCn ? false : (await probeLeetcodeCn()).available;
+  console.log('[bootstrap] cn available:', cnAvailable, 'skipLlm:', skipLlm);
 
   for (const l of lists) {
     try {
+      console.log('[bootstrap] fetching list:', l.slug);
       const items = await fetchListProblems(l.slug);
+      console.log('[bootstrap] got', items.length, 'items from', l.slug);
       const listId = await db.upsertProblemList({
         slug: l.slug,
         titleEn: l.titleEn,
@@ -96,8 +100,14 @@ async function taskInitialBootstrap() {
                 }
               }
               if (!zhContent && en.contentEn && !skipLlm) {
-                zhContent = await translateContentToZh(en.contentEn);
-                if (zhContent) source = 'llm-translated';
+                const existing = await db.getProblemBySlug(it.titleSlug);
+                if (existing?.contentZh) {
+                  zhContent = existing.contentZh;
+                  source = existing.contentZhSource as 'leetcode-cn' | 'llm-translated' | null;
+                } else {
+                  zhContent = await translateContentToZh(en.contentEn);
+                  if (zhContent) source = 'llm-translated';
+                }
               }
               await db.upsertProblem({
                 frontendId: it.frontendId,
