@@ -102,7 +102,10 @@ export async function fetchCompanyCsv(
   timeframe: '30d' | '3m' | '6m' | '1y' | 'all',
 ): Promise<CompanyCsvRow[]> {
   const url = `${LIQUIDSLR_REPO_RAW}/${encodeURIComponent(directoryName)}/${encodeURIComponent(TIMEFRAME_LABEL[timeframe])}.csv`;
-  const res = await _fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  const res = await _fetch(url, { signal: controller.signal });
+  clearTimeout(timeout);
   if (!res.ok) {
     if (res.status === 404) return [];
     throw new Error(`liquidslr fetch ${res.status} for ${directoryName}/${timeframe}`);
@@ -113,9 +116,13 @@ export async function fetchCompanyCsv(
 
 export async function getLiquidslrLatestCommit(): Promise<string | null> {
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
     const res = await _fetch(LIQUIDSLR_GITHUB_API, {
       headers: { accept: 'application/vnd.github+json' },
+      signal: ctrl.signal,
     });
+    clearTimeout(t);
     if (!res.ok) return null;
     const arr = (await res.json()) as Array<{ sha?: string }>;
     return arr?.[0]?.sha ?? null;
