@@ -8,6 +8,7 @@ import type { CodeSnippet } from '@/components/SolutionTabs';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { SolvePanel } from '@/components/SolvePanel';
 import { CodeBlock } from '@/components/CodeBlock';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { Difficulty } from '@shared/problemTypes';
 
 type ProblemDetailRow = {
@@ -93,20 +94,23 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
       {tab === 'solution' && <SolutionPanel problemId={p.id} />}
 
       {tab === 'solve' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-5 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-            {descriptionCard}
-          </div>
-          <div className="lg:col-span-7">
-            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+        <ResizablePanelGroup direction="horizontal" className="min-h-[600px]">
+          <ResizablePanel defaultSize={40} minSize={20}>
+            <div className="h-full overflow-y-auto pr-2">
+              {descriptionCard}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={60} minSize={30}>
+            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 h-full">
               <SolvePanel
                 problemId={p.id}
                 titleSlug={p.titleSlug}
                 codeSnippets={snippets}
               />
             </section>
-          </div>
-        </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
     </div>
   );
