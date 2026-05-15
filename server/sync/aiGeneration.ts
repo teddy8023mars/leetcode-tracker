@@ -1,5 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { jsonrepair } from 'jsonrepair';
 import { getDb } from '../db';
 import {
   aiGenerationLocks,
@@ -189,10 +190,16 @@ export async function generateAiSolution(
 
     // Parse and validate JSON response
     let parsed: z.infer<typeof AiResponseSchema>;
+    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+    const cleaned = jsonMatch ? jsonMatch[0] : rawContent.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
     try {
-      parsed = AiResponseSchema.parse(JSON.parse(rawContent));
+      parsed = AiResponseSchema.parse(JSON.parse(cleaned));
     } catch {
-      throw new Error(`Failed to parse LLM JSON response: ${rawContent.slice(0, 200)}`);
+      try {
+        parsed = AiResponseSchema.parse(JSON.parse(jsonrepair(cleaned)));
+      } catch {
+        throw new Error(`Failed to parse LLM JSON response: ${rawContent.slice(0, 200)}`);
+      }
     }
 
     // Upsert into aiSolutions table
