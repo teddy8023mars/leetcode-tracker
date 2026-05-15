@@ -204,7 +204,29 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
     else throw new Error("Generated suite missing methodName");
   }
   if (!Array.isArray(parsed.cases) || parsed.cases.length === 0) {
-    throw new Error("Generated suite has no cases");
+    // Fallback: build cases from LeetCode example testcases if available
+    if (p.exampleTestcases) {
+      const lines = p.exampleTestcases.split('\n').filter(l => l.trim());
+      const sig = extractPythonSignature(p.codeSnippetsJson);
+      const paramCount = sig.signature ? (sig.signature.match(/,/g) || []).length : 1;
+      const cases: Array<{ input: unknown[]; expected: unknown }> = [];
+      for (let i = 0; i + paramCount < lines.length; i += paramCount + 1) {
+        const args: unknown[] = [];
+        for (let j = 0; j < paramCount; j++) {
+          try { args.push(JSON.parse(lines[i + j])); } catch { args.push(lines[i + j]); }
+        }
+        let expected: unknown;
+        try { expected = JSON.parse(lines[i + paramCount]); } catch { expected = lines[i + paramCount]; }
+        cases.push({ input: args, expected });
+      }
+      if (cases.length > 0) {
+        parsed.cases = cases;
+        parsed.source = "examples-fallback";
+      }
+    }
+    if (!Array.isArray(parsed.cases) || parsed.cases.length === 0) {
+      throw new Error("Generated suite has no cases");
+    }
   }
   // Normalize: GPT often emits `args` instead of `input` despite the prompt.
   // Accept either, but persist canonical `input` so downstream code (and the cache)
