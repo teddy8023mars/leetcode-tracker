@@ -40,12 +40,21 @@ export function SyncStatus() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-extrabold tracking-tight">{t('sync.pageTitle')}</h1>
         {user ? (
-          <Button
-            onClick={() => trigger.mutate({ syncType: 'manual' })}
-            disabled={trigger.isPending}
-          >
-            {trigger.isPending ? t('loading') : t('sync.runManual')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => trigger.mutate({ syncType: 'manual' })}
+              disabled={trigger.isPending}
+            >
+              {trigger.isPending ? t('loading') : t('sync.runManual')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => trigger.mutate({ syncType: 'ai-pregenerate' })}
+              disabled={trigger.isPending}
+            >
+              {trigger.isPending ? t('loading') : t('sync.runAiPregenerate')}
+            </Button>
+          </div>
         ) : (
           <span className="text-xs text-ink-soft font-mono">{t('sync.loginFirst')}</span>
         )}
