@@ -134,21 +134,23 @@ function SolutionPanel({ problemId }: { problemId: number }) {
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
 
   const solutions = q.data ?? [];
-  if (solutions.length === 0) {
-    return <p className="text-ink-soft text-sm">{t('problem.noSolution')}</p>;
-  }
-
   const preferred = lang === 'zh' ? 'zh' : 'en';
-  const sol = solutions.find(s => s.language === preferred) ?? solutions[0];
-  const cleaned = cleanSolutionMarkdown(sol.contentMarkdown);
+  const sol = solutions.length > 0
+    ? (solutions.find(s => s.language === preferred) ?? solutions[0])
+    : null;
+  const cleaned = sol ? cleanSolutionMarkdown(sol.contentMarkdown) : null;
 
   return (
     <div className="space-y-6">
-      <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
-        <div className="prose prose-sm max-w-none">
-          <Streamdown>{cleaned}</Streamdown>
-        </div>
-      </section>
+      {cleaned != null ? (
+        <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+          <div className="prose prose-sm max-w-none">
+            <Streamdown>{cleaned}</Streamdown>
+          </div>
+        </section>
+      ) : (
+        <p className="text-ink-soft text-sm">{t('problem.noSolution')}</p>
+      )}
 
       {aiQ.isLoading && (
         <div className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
