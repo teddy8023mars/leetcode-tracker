@@ -37,6 +37,7 @@ export const en = {
     noContent: 'No description fetched yet.',
     solutionTab: 'Solution',
     noSolution: 'No official solution available for this problem.',
+    relatedProblems: 'Related Problems',
   },
   sync: {
     pageTitle: 'Sync',

@@ -38,6 +38,7 @@ export const zh: Dict = {
     noContent: '尚未抓取题目描述。',
     solutionTab: '题解',
     noSolution: '该题暂无官方题解。',
+    relatedProblems: '相关题目',
   },
   sync: {
     pageTitle: '同步',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'wouter';
 import { Streamdown } from 'streamdown';
 import { trpc } from '@/lib/trpc';
@@ -11,6 +11,8 @@ import { CodeBlock } from '@/components/CodeBlock';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { Difficulty } from '@shared/problemTypes';
 
+type SimilarQuestion = { title: string; titleSlug: string; difficulty: string };
+
 type ProblemDetailRow = {
   id: number;
   frontendId: number;
@@ -21,6 +23,8 @@ type ProblemDetailRow = {
   contentEn?: string | null;
   contentZh?: string | null;
   codeSnippetsJson?: CodeSnippet[] | null;
+  similarQuestionsJson?: SimilarQuestion[] | null;
+  topicTagsJson?: { name: string; slug: string }[] | null;
 };
 
 type Tab = 'description' | 'solution' | 'solve';
@@ -29,6 +33,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const t = useT();
   const { lang } = useLang();
   const q = trpc.problems.getBySlug.useQuery({ titleSlug }, { staleTime: 60_000 });
+  const allQ = trpc.problems.list.useQuery({ limit: 200 }, { staleTime: 120_000 });
   const [tab, setTab] = useState<Tab>('description');
 
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
@@ -41,6 +46,19 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
   const containerWidth = tab === 'solve' ? 'w-full' : 'max-w-5xl';
+
+  const { prev, next } = useMemo(() => {
+    const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
+    const sorted = [...all].sort((a, b) => a.frontendId - b.frontendId);
+    const idx = sorted.findIndex(x => x.titleSlug === titleSlug);
+    return {
+      prev: idx > 0 ? sorted[idx - 1] : null,
+      next: idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null,
+    };
+  }, [allQ.data, titleSlug]);
+
+  const similarQuestions = (p.similarQuestionsJson ?? []) as SimilarQuestion[];
+  const topicTags = (p.topicTagsJson ?? []) as { name: string; slug: string }[];
 
   const descriptionCard = (
     <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
@@ -61,12 +79,26 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   return (
     <div className={`${containerWidth} space-y-6`}>
       <div className="flex flex-col gap-2">
-        <Link
-          href="/problems"
-          className="text-sm font-mono text-ink-soft hover:text-ink w-fit"
-        >
-          {t('problemList.backToProblems')}
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/problems"
+            className="text-sm font-mono text-ink-soft hover:text-ink w-fit"
+          >
+            {t('problemList.backToProblems')}
+          </Link>
+          <div className="flex items-center gap-2">
+            {prev && (
+              <Link href={`/problems/${prev.titleSlug}`} className="text-xs font-mono text-ink-soft hover:text-ink">
+                ← #{prev.frontendId}
+              </Link>
+            )}
+            {next && (
+              <Link href={`/problems/${next.titleSlug}`} className="text-xs font-mono text-ink-soft hover:text-ink">
+                #{next.frontendId} →
+              </Link>
+            )}
+          </div>
+        </div>
         <header className="flex items-baseline gap-3 flex-wrap">
           <span className="font-mono text-ink-soft text-lg">#{p.frontendId}</span>
           <h1 className="text-3xl font-extrabold tracking-tight">
@@ -74,6 +106,15 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </h1>
           <DifficultyBadge difficulty={p.difficulty} />
         </header>
+        {topicTags.length > 0 && (
+          <div className="flex gap-1 flex-wrap">
+            {topicTags.map(tag => (
+              <span key={tag.slug} className="px-2 py-0.5 text-[11px] font-mono bg-secondary rounded text-ink-soft">
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
         <ProgressSection problemId={p.id} />
       </div>
 
@@ -89,7 +130,30 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         </TabButton>
       </div>
 
-      {tab === 'description' && descriptionCard}
+      {tab === 'description' && (
+        <div className="space-y-4">
+          {descriptionCard}
+          {similarQuestions.length > 0 && (
+            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-4">
+              <h3 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-3">
+                {t('problem.relatedProblems')}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {similarQuestions.slice(0, 8).map(sq => (
+                  <Link
+                    key={sq.titleSlug}
+                    href={`/problems/${sq.titleSlug}`}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-secondary/50 hover:bg-secondary rounded transition-colors"
+                  >
+                    <span>{sq.title}</span>
+                    <DifficultyBadge difficulty={sq.difficulty as Difficulty} />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       {tab === 'solution' && <SolutionPanel problemId={p.id} />}
 

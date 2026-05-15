@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useT, useLang } from '@/contexts/LangContext';
@@ -26,6 +26,7 @@ type ProblemRow = {
   difficulty: Difficulty;
   acRate?: number | string | null;
   paidOnly?: boolean;
+  topicTagsJson?: Array<{ name: string; slug: string }> | null;
 };
 
 const PAGE_SIZES = [20, 50, 100];
@@ -62,8 +63,27 @@ export function ProblemList() {
   }
   const dueSet = new Set(dueQ.data ?? []);
 
-  const allItems = (query.data?.items ?? []) as ProblemRow[];
-  const total = query.data?.total ?? allItems.length;
+  const rawItems = (query.data?.items ?? []) as ProblemRow[];
+
+  const allTags = useMemo(() => {
+    const tagCount = new Map<string, { name: string; count: number }>();
+    for (const p of rawItems) {
+      for (const t of (p.topicTagsJson ?? [])) {
+        const existing = tagCount.get(t.slug);
+        if (existing) existing.count++;
+        else tagCount.set(t.slug, { name: t.name, count: 1 });
+      }
+    }
+    return Array.from(tagCount.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([slug, { name, count }]) => ({ slug, name, count }));
+  }, [rawItems]);
+
+  const tagFilter = filters.tag as string | undefined;
+  const allItems = tagFilter
+    ? rawItems.filter(p => (p.topicTagsJson ?? []).some(t => t.slug === tagFilter))
+    : rawItems;
+  const total = allItems.length;
   const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const items = allItems.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -118,6 +138,32 @@ export function ProblemList() {
               </SelectContent>
             </Select>
           </div>
+          {allTags.length > 0 && (
+            <div>
+              <label className="font-mono text-xs text-ink-soft block mb-1">
+                {t('filter.tag')}
+              </label>
+              <Select
+                value={(filters.tag as string) ?? 'all'}
+                onValueChange={(v) => {
+                  setFilter('tag', v === 'all' ? undefined : v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('filter.all')}</SelectItem>
+                  {allTags.map(tag => (
+                    <SelectItem key={tag.slug} value={tag.slug}>
+                      {tag.name} ({tag.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"
