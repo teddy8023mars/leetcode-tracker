@@ -106,33 +106,22 @@ export async function generateAiSolution(
   const problem = problemRows[0];
   if (!problem) throw new Error(`Problem ${problemId} not found`);
 
-  // Acquire lock atomically: insert or update only if the existing lock is expired
-  const now = new Date();
-  const lockedUntil = new Date(now.getTime() + LOCK_TTL_MS);
-
+  // Acquire lock: delete any expired lock, then try to insert.
+  // If insert fails (duplicate key), another process holds a valid lock.
   await db
-    .insert(aiGenerationLocks)
-    .values({ problemId, language, lockedAt: now, lockedUntil })
-    .onDuplicateKeyUpdate({
-      set: {
-        lockedAt: sql`CASE WHEN ${aiGenerationLocks.lockedUntil} < NOW() THEN ${now} ELSE ${aiGenerationLocks.lockedAt} END`,
-        lockedUntil: sql`CASE WHEN ${aiGenerationLocks.lockedUntil} < NOW() THEN ${lockedUntil} ELSE ${aiGenerationLocks.lockedUntil} END`,
-      },
-    });
-
-  // Verify we actually own the lock by checking our specific lockedUntil timestamp
-  const lockRows = await db
-    .select()
-    .from(aiGenerationLocks)
+    .delete(aiGenerationLocks)
     .where(
       and(
         eq(aiGenerationLocks.problemId, problemId),
         eq(aiGenerationLocks.language, language),
+        sql`${aiGenerationLocks.lockedUntil} < NOW()`,
       ),
-    )
-    .limit(1);
-  const lock = lockRows[0];
-  if (!lock || lock.lockedUntil.getTime() !== lockedUntil.getTime()) {
+    );
+
+  const lockedUntil = new Date(Date.now() + LOCK_TTL_MS);
+  try {
+    await db.insert(aiGenerationLocks).values({ problemId, language, lockedUntil });
+  } catch {
     throw new Error(
       `AI solution generation is already in progress for problem ${problemId} (${language})`,
     );

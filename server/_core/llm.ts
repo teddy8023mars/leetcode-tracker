@@ -317,6 +317,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${ENV.forgeApiKey}`,
+      "x-client-usecase": "data-analytics",
     },
     body: JSON.stringify(payload),
   });
