@@ -40,7 +40,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const content = wantZh ? p.contentZh || p.contentEn : p.contentEn;
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
-  const containerWidth = tab === 'solve' ? 'max-w-[1600px]' : 'max-w-5xl';
+  const containerWidth = tab === 'solve' ? 'w-full' : 'max-w-5xl';
 
   const descriptionCard = (
     <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
