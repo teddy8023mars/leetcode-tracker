@@ -181,8 +181,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
               })
             }
             className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Ctrl+Enter"
           >
-            {runMut.isPending ? t('judge.submitting') : t('judge.submit')}
+            {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
           </button>
         </div>
       </div>
