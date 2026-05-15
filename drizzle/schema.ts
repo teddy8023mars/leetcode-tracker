@@ -219,6 +219,7 @@ export const userProgress = mysqlTable(
     reviewIntervalDays: int("reviewIntervalDays").default(0).notNull(),
     nextReviewAt: timestamp("nextReviewAt"),
     reviewCount: int("reviewCount").default(0).notNull(),
+    easinessFactor: decimal("easinessFactor", { precision: 3, scale: 2 }).default("2.50").notNull(),
     lastReviewedAt: timestamp("lastReviewedAt"),
     firstCompletedAt: timestamp("firstCompletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

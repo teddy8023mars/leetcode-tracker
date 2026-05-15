@@ -99,6 +99,7 @@ CREATE TABLE userProgress (
   reviewIntervalDays INTEGER DEFAULT 0,
   nextReviewAt TEXT,
   reviewCount INTEGER DEFAULT 0,
+  easinessFactor REAL DEFAULT 2.50,
   lastReviewedAt TEXT,
   firstCompletedAt TEXT,
   createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
