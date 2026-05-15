@@ -28,7 +28,7 @@ export const problemsRouter = router({
         filters: input.filters,
         limit: input.limit,
         cursor: input.cursor,
-        userId: ctx.user?.id,
+        userId: ctx.user?.id ?? 1,
       });
     }),
   getBySlug: publicProcedure
