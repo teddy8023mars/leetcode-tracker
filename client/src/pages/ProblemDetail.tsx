@@ -73,6 +73,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </h1>
           <DifficultyBadge difficulty={p.difficulty} />
         </header>
+        <ProgressSection problemId={p.id} />
       </div>
 
       <div role="tablist" className="flex gap-1 border-b border-border">
@@ -196,10 +197,13 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
   };
 
   return (
-    <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 space-y-5">
-      <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
-        {t('problem.aiSolution')}
-      </h2>
+    <section className="bg-gradient-to-br from-emerald-50/80 to-white/70 backdrop-blur border border-emerald-200 rounded-lg p-6 space-y-5">
+      <div className="flex items-center gap-2 border-b border-emerald-200 pb-2">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">AI</span>
+        <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
+          {t('problem.aiSolution')}
+        </h2>
+      </div>
 
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-ink">{t('problem.aiApproach')}</h3>
@@ -245,6 +249,95 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
         </div>
       )}
     </section>
+  );
+}
+
+function ProgressSection({ problemId }: { problemId: number }) {
+  const t = useT();
+  const utils = trpc.useUtils();
+  const q = trpc.progress.get.useQuery({ problemId }, { staleTime: 30_000 });
+  const mutation = trpc.progress.update.useMutation({
+    onSuccess: () => {
+      utils.progress.get.invalidate({ problemId });
+      utils.progress.listDue.invalidate();
+      utils.progress.listAll.invalidate();
+    },
+  });
+  const [showRating, setShowRating] = useState(false);
+
+  const currentStatus = (q.data?.status as 'todo' | 'reviewing' | 'done' | undefined) ?? undefined;
+  const nextReview = q.data?.nextReviewAt ? new Date(q.data.nextReviewAt) : null;
+
+  const statusButtons: { status: 'todo' | 'reviewing' | 'done'; label: string; activeClass: string }[] = [
+    { status: 'todo', label: t('progress.todo'), activeClass: 'bg-secondary text-ink' },
+    { status: 'reviewing', label: t('progress.reviewing'), activeClass: 'bg-pink-100 text-pink-800' },
+    { status: 'done', label: t('progress.done'), activeClass: 'bg-emerald-100 text-emerald-800' },
+  ];
+
+  const handleStatus = (status: 'todo' | 'reviewing' | 'done') => {
+    if (status === 'done') {
+      setShowRating(true);
+    } else {
+      setShowRating(false);
+      mutation.mutate({ problemId, status });
+    }
+  };
+
+  const handleRate = (quality: number) => {
+    mutation.mutate({ problemId, status: 'done', quality });
+    setShowRating(false);
+  };
+
+  const ratings = [
+    { quality: 1, label: t('progress.rate1'), color: 'bg-red-100 text-red-700' },
+    { quality: 2, label: t('progress.rate2'), color: 'bg-orange-100 text-orange-700' },
+    { quality: 3, label: t('progress.rate3'), color: 'bg-yellow-100 text-yellow-700' },
+    { quality: 4, label: t('progress.rate4'), color: 'bg-blue-100 text-blue-700' },
+    { quality: 5, label: t('progress.rate5'), color: 'bg-emerald-100 text-emerald-700' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {statusButtons.map((btn) => (
+          <button
+            key={btn.status}
+            type="button"
+            onClick={() => handleStatus(btn.status)}
+            disabled={mutation.isPending}
+            className={
+              'px-3 py-1 text-xs font-mono rounded transition-colors ' +
+              (currentStatus === btn.status
+                ? btn.activeClass
+                : 'bg-secondary/50 text-ink-soft hover:text-ink')
+            }
+          >
+            {btn.label}
+          </button>
+        ))}
+        {nextReview && currentStatus === 'done' && (
+          <span className="text-[11px] text-ink-soft font-mono">
+            {t('progress.nextReview', { date: nextReview.toLocaleDateString() })}
+          </span>
+        )}
+      </div>
+      {showRating && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-ink-soft">{t('progress.rateTitle')}</span>
+          {ratings.map((r) => (
+            <button
+              key={r.quality}
+              type="button"
+              onClick={() => handleRate(r.quality)}
+              disabled={mutation.isPending}
+              className={`px-2 py-0.5 text-[11px] font-mono rounded ${r.color} hover:opacity-80`}
+            >
+              {r.quality} {r.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
