@@ -5,7 +5,18 @@ import { ProblemDetail } from '@/pages/ProblemDetail';
 import { trpc } from '@/lib/trpc';
 
 vi.mock('@/lib/trpc', () => ({
-  trpc: { problems: { getBySlug: { useQuery: vi.fn() } } },
+  trpc: {
+    problems: { getBySlug: { useQuery: vi.fn() } },
+    progress: {
+      get: { useQuery: vi.fn().mockReturnValue({ data: null }) },
+      update: { useMutation: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }) },
+      listDue: { invalidate: vi.fn() },
+      listAll: { invalidate: vi.fn() },
+    },
+    useUtils: vi.fn().mockReturnValue({
+      progress: { get: { invalidate: vi.fn() }, listDue: { invalidate: vi.fn() }, listAll: { invalidate: vi.fn() } },
+    }),
+  },
 }));
 
 describe('ProblemDetail', () => {

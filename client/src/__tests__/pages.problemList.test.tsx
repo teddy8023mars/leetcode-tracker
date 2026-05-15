@@ -9,6 +9,10 @@ vi.mock('@/lib/trpc', () => ({
     problems: {
       list: { useQuery: vi.fn() },
     },
+    progress: {
+      listAll: { useQuery: vi.fn().mockReturnValue({ data: [] }) },
+      listDue: { useQuery: vi.fn().mockReturnValue({ data: [] }) },
+    },
   },
 }));
 

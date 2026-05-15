@@ -16,5 +16,6 @@ describe('appRouter assembly', () => {
     expect(caller.auth).toBeDefined();
     expect(caller.judge).toBeDefined();
     expect(caller.aiSolutions).toBeDefined();
+    expect(caller.progress).toBeDefined();
   });
 });

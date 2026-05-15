@@ -1,6 +1,7 @@
 import { trpc } from '@/lib/trpc';
 import { useT } from '@/contexts/LangContext';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -10,6 +11,8 @@ type SyncRow = {
   status: 'running' | 'success' | 'failed' | 'partial' | string;
   startedAt: Date | string | number;
   itemsProcessed?: number | null;
+  itemsSucceeded?: number | null;
+  itemsFailed?: number | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -22,7 +25,8 @@ const STATUS_TONE: Record<string, string> = {
 export function SyncStatus() {
   const t = useT();
   const { user } = useAuth();
-  const q = trpc.sync.status.useQuery(undefined, { staleTime: 10_000, refetchInterval: 5_000 });
+  const q = trpc.sync.status.useQuery(undefined, { staleTime: 2_000, refetchInterval: 2_000 });
+  const problemsQ = trpc.problems.list.useQuery({ limit: 1 }, { staleTime: 60_000 });
   const utils = trpc.useUtils();
   const trigger = trpc.sync.triggerManual.useMutation({
     onSuccess: () => {
@@ -74,26 +78,46 @@ export function SyncStatus() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-border">
-              <td className="py-2 pr-3 font-mono">{r.syncType}</td>
-              <td className="pr-3">
-                <span
-                  className={`inline-block px-2 py-0.5 rounded font-mono text-[11px] ${
-                    STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
-                  }`}
-                >
-                  {t(`sync.status.${r.status}`) === `sync.status.${r.status}`
-                    ? r.status
-                    : t(`sync.status.${r.status}`)}
-                </span>
-              </td>
-              <td className="pr-3 font-mono">{r.itemsProcessed ?? 0}</td>
-              <td className="pr-3 font-mono text-ink-soft">
-                {new Date(r.startedAt).toLocaleString()}
-              </td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const totalProblems = (problemsQ.data as { total?: number } | undefined)?.total ?? 0;
+            const isAiTask = r.syncType === 'ai-pregenerate';
+            const isRunning = r.status === 'running';
+            const expectedTotal = isAiTask ? totalProblems * 2 : 0;
+            const processed = r.itemsProcessed ?? 0;
+            const pct = isRunning && isAiTask && expectedTotal > 0
+              ? Math.min(Math.round((processed / expectedTotal) * 100), 100)
+              : null;
+
+            return (
+              <tr key={r.id} className="border-t border-border">
+                <td className="py-2 pr-3 font-mono">{r.syncType}</td>
+                <td className="pr-3">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded font-mono text-[11px] ${
+                      STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
+                    }`}
+                  >
+                    {t(`sync.status.${r.status}`) === `sync.status.${r.status}`
+                      ? r.status
+                      : t(`sync.status.${r.status}`)}
+                  </span>
+                </td>
+                <td className="pr-3 font-mono">
+                  {pct !== null ? (
+                    <div className="flex items-center gap-2">
+                      <Progress value={pct} className="h-2 w-24" />
+                      <span className="text-[11px] text-ink-soft">{pct}%</span>
+                    </div>
+                  ) : (
+                    processed
+                  )}
+                </td>
+                <td className="pr-3 font-mono text-ink-soft">
+                  {new Date(r.startedAt).toLocaleString()}
+                </td>
+              </tr>
+            );
+          })}
           {rows.length === 0 && (
             <tr>
               <td className="py-3 text-ink-soft" colSpan={4}>

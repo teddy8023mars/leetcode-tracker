@@ -49,6 +49,7 @@ describe('sync/taskAiPregenerate', () => {
   it('calls generateAiSolution for problems missing AI solutions', async () => {
     const mockDb = {
       execute: vi.fn().mockResolvedValue([{ id: 1 }]),
+      update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ catch: vi.fn() }) }) }),
     };
     vi.spyOn(db, 'getDb').mockResolvedValue(mockDb as never);
 
@@ -62,6 +63,7 @@ describe('sync/taskAiPregenerate', () => {
   it('counts failures without throwing when generateAiSolution rejects', async () => {
     const mockDb = {
       execute: vi.fn().mockResolvedValue([{ id: 1 }]),
+      update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ catch: vi.fn() }) }) }),
     };
     vi.spyOn(db, 'getDb').mockResolvedValue(mockDb as never);
     vi.mocked(generateAiSolution).mockRejectedValue(new Error('LLM timeout'));
@@ -70,6 +72,5 @@ describe('sync/taskAiPregenerate', () => {
 
     expect(result.itemsFailed).toBeGreaterThan(0);
     expect(result.itemsSucceeded).toBe(0);
-    // Should not throw
   });
 });

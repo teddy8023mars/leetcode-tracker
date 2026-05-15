@@ -10,6 +10,9 @@ vi.mock('@/lib/trpc', () => ({
       status: { useQuery: vi.fn() },
       triggerManual: { useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })) },
     },
+    problems: {
+      list: { useQuery: vi.fn().mockReturnValue({ data: { total: 0 } }) },
+    },
     useUtils: vi.fn(() => ({ sync: { status: { invalidate: vi.fn() } } })),
   },
 }));
