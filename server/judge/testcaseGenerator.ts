@@ -170,19 +170,40 @@ export async function generateTestcaseSuite(p: ProblemPromptInput): Promise<Gene
   const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   try {
     parsed = JSON.parse(cleaned) as GeneratedSuite;
-  } catch (e) {
-    console.error(
-      "[testcaseGenerator] JSON.parse failed. len=" +
-        content.length +
-        " head=" +
-        content.slice(0, 300) +
-        " tail=" +
-        content.slice(-300),
-    );
-    throw new Error(
-      "LLM returned invalid JSON for testcase generation: " +
-        (e instanceof Error ? e.message : String(e)),
-    );
+  } catch {
+    // referenceSolution often contains unescaped newlines/quotes that break JSON.
+    // Strip it out and retry — we can still judge without it.
+    const refStart = cleaned.indexOf('"referenceSolution"');
+    let stripped = cleaned;
+    if (refStart !== -1) {
+      const beforeRef = cleaned.slice(0, refStart);
+      const afterRef = cleaned.slice(refStart);
+      const casesStart = afterRef.indexOf('"cases"');
+      if (casesStart !== -1) {
+        const between = afterRef.slice(0, casesStart).replace(/,\s*$/, '');
+        stripped = beforeRef + afterRef.slice(casesStart);
+        if (stripped[beforeRef.length - 1] !== ',' && !beforeRef.trimEnd().endsWith('{')) {
+          stripped = beforeRef + ',' + afterRef.slice(casesStart);
+        }
+      }
+    }
+    try {
+      parsed = JSON.parse(stripped) as GeneratedSuite;
+      console.warn("[testcaseGenerator] Parsed after stripping referenceSolution");
+    } catch (e2) {
+      console.error(
+        "[testcaseGenerator] JSON.parse failed. len=" +
+          content.length +
+          " head=" +
+          content.slice(0, 300) +
+          " tail=" +
+          content.slice(-300),
+      );
+      throw new Error(
+        "LLM returned invalid JSON for testcase generation: " +
+          (e2 instanceof Error ? e2.message : String(e2)),
+      );
+    }
   }
 
   if (!parsed.methodName || typeof parsed.methodName !== "string") {
