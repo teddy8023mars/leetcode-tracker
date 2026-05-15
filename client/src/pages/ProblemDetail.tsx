@@ -7,6 +7,7 @@ import { ProblemContent } from '@/components/ProblemContent';
 import type { CodeSnippet } from '@/components/SolutionTabs';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { SolvePanel } from '@/components/SolvePanel';
+import { CodeBlock } from '@/components/CodeBlock';
 import type { Difficulty } from '@shared/problemTypes';
 
 type ProblemDetailRow = {
@@ -125,6 +126,10 @@ function SolutionPanel({ problemId }: { problemId: number }) {
   const t = useT();
   const { lang } = useLang();
   const q = trpc.problems.solutions.useQuery({ problemId }, { staleTime: 60_000 });
+  const aiQ = trpc.aiSolutions.get.useQuery(
+    { problemId, language: lang as 'en' | 'zh' },
+    { staleTime: 5 * 60_000 },
+  );
 
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
 
@@ -136,11 +141,107 @@ function SolutionPanel({ problemId }: { problemId: number }) {
   const preferred = lang === 'zh' ? 'zh' : 'en';
   const sol = solutions.find(s => s.language === preferred) ?? solutions[0];
   const cleaned = cleanSolutionMarkdown(sol.contentMarkdown);
+
   return (
-    <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
-      <div className="prose prose-sm max-w-none">
-        <Streamdown>{cleaned}</Streamdown>
+    <div className="space-y-6">
+      <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+        <div className="prose prose-sm max-w-none">
+          <Streamdown>{cleaned}</Streamdown>
+        </div>
+      </section>
+
+      {aiQ.isLoading && (
+        <div className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+          <div className="h-4 rounded bg-secondary animate-pulse w-1/3 mb-4" />
+          <div className="space-y-2">
+            <div className="h-3 rounded bg-secondary animate-pulse w-full" />
+            <div className="h-3 rounded bg-secondary animate-pulse w-5/6" />
+            <div className="h-3 rounded bg-secondary animate-pulse w-4/6" />
+          </div>
+        </div>
+      )}
+
+      {!aiQ.isLoading && aiQ.data && (
+        <AiSolutionSection data={aiQ.data} />
+      )}
+    </div>
+  );
+}
+
+type AiSolutionData = {
+  approachMarkdown: string;
+  complexityMarkdown: string;
+  pythonCode: string;
+  javaCode: string;
+  cppCode: string;
+  pitfallsMarkdown?: string | null;
+};
+
+function AiSolutionSection({ data }: { data: AiSolutionData }) {
+  const t = useT();
+  const [codeLang, setCodeLang] = useState<'python' | 'java' | 'cpp'>('python');
+
+  const codeTabs: { key: 'python' | 'java' | 'cpp'; label: string }[] = [
+    { key: 'python', label: t('problem.code.python') },
+    { key: 'java', label: t('problem.code.java') },
+    { key: 'cpp', label: t('problem.code.cpp') },
+  ];
+
+  const codeByLang: Record<'python' | 'java' | 'cpp', string> = {
+    python: data.pythonCode,
+    java: data.javaCode,
+    cpp: data.cppCode,
+  };
+
+  return (
+    <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 space-y-5">
+      <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
+        {t('problem.aiSolution')}
+      </h2>
+
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold text-ink">{t('problem.aiApproach')}</h3>
+        <div className="prose prose-sm max-w-none">
+          <Streamdown>{data.approachMarkdown}</Streamdown>
+        </div>
       </div>
+
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold text-ink">{t('problem.aiComplexity')}</h3>
+        <div className="prose prose-sm max-w-none">
+          <Streamdown>{data.complexityMarkdown}</Streamdown>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex gap-1">
+          {codeTabs.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setCodeLang(key)}
+              className={
+                'px-3 py-1 text-xs font-mono rounded transition-colors ' +
+                (codeLang === key
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-secondary text-ink-soft hover:text-ink')
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <CodeBlock language={codeLang} code={codeByLang[codeLang]} />
+      </div>
+
+      {data.pitfallsMarkdown && data.pitfallsMarkdown.trim() !== '' && (
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-ink">{t('problem.aiPitfalls')}</h3>
+          <div className="prose prose-sm max-w-none">
+            <Streamdown>{data.pitfallsMarkdown}</Streamdown>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
