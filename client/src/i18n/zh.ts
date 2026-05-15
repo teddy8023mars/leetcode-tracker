@@ -26,6 +26,9 @@ export const zh: Dict = {
     description: '题目描述',
     officialZh: '官方题解 (中)',
     aiSolution: 'AI 解析',
+    aiApproach: '解题思路',
+    aiComplexity: '复杂度分析',
+    aiPitfalls: '易错点',
     notes: '笔记',
     code: { python: 'Python', java: 'Java', cpp: 'C++' },
     markDone: '标记完成',
@@ -49,6 +52,7 @@ export const zh: Dict = {
     triggerFailed: '触发同步失败',
     loginFirst: '登录后才能触发手动同步。',
     statusLabel: '状态',
+    runAiPregenerate: 'AI 预生成题解',
   },
   list: {
     problemCount: '{count} 道题',

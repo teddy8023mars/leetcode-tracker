@@ -25,6 +25,9 @@ export const en = {
     description: 'Description',
     officialZh: 'Official (zh)',
     aiSolution: 'AI Solution',
+    aiApproach: 'Approach',
+    aiComplexity: 'Complexity',
+    aiPitfalls: 'Common Pitfalls',
     notes: 'Notes',
     code: { python: 'Python', java: 'Java', cpp: 'C++' },
     markDone: 'Mark Done',
@@ -48,6 +51,7 @@ export const en = {
     triggerFailed: 'Failed to trigger sync',
     loginFirst: 'Sign in to trigger a manual sync.',
     statusLabel: 'Status',
+    runAiPregenerate: 'Generate AI solutions',
   },
   list: {
     problemCount: '{count} problems',
