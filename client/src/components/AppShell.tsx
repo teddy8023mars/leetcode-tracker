@@ -20,7 +20,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <BlueprintBackground />
       <div className="min-h-screen flex">
         <aside className="w-64 shrink-0 border-r border-border bg-white/80 backdrop-blur px-5 py-6 sticky top-0 h-screen flex flex-col">
-          <div className="font-mono text-xs text-ink-soft mb-1">// blueprint</div>
           <h1 className="font-sans text-lg font-extrabold tracking-tight leading-tight mb-4">
             LeetCode<br />Tracker
           </h1>
