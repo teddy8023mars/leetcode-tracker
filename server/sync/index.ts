@@ -1,4 +1,4 @@
-import { LEETCODE_CN_GRAPHQL, COMPANY_SLUG_MAP } from './constants';
+import { LEETCODE_CN_GRAPHQL, LEETCODE_US_GRAPHQL, COMPANY_SLUG_MAP } from './constants';
 import { taskAiPregenerate } from './aiPregenerate';
 import { registerSyncTasks } from './orchestrator';
 import {
@@ -6,6 +6,7 @@ import {
   fetchQuestionDetailEn,
   fetchQuestionDetailZh,
   fetchOfficialSolutionZh,
+  gql,
 } from './leetcode';
 import { fetchCompanyCsv, knownCompanyDirNames } from './liquidslr';
 import { translateContentToZh } from './translation';
@@ -156,8 +157,17 @@ async function taskInitialBootstrap() {
       for (const row of rows) {
         const p = await db.getProblemBySlug(row.titleSlug);
         if (!p) {
+          let fid = 0;
+          try {
+            const data = await gql<{ question: { questionFrontendId: string } | null }>(
+              LEETCODE_US_GRAPHQL,
+              'query q($titleSlug:String!){question(titleSlug:$titleSlug){questionFrontendId}}',
+              { titleSlug: row.titleSlug },
+            );
+            fid = Number(data.question?.questionFrontendId) || 0;
+          } catch { /* skip */ }
           await db.upsertProblem({
-            frontendId: -1,
+            frontendId: fid,
             titleSlug: row.titleSlug,
             titleEn: row.title,
             difficulty: row.difficulty,

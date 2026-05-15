@@ -195,7 +195,7 @@ export function ProblemList() {
                 </tbody>
               </table>
 
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-ink-soft font-mono">{t('problemList.perPage')}</span>
                   <Select
@@ -214,45 +214,11 @@ export function ProblemList() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage <= 1}
-                    onClick={() => setPage(1)}
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    «
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    ‹
-                  </Button>
-                  <span className="text-xs font-mono text-ink-soft px-2">
-                    {safePage} / {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    ›
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage >= totalPages}
-                    onClick={() => setPage(totalPages)}
-                    className="h-8 w-8 p-0 text-xs"
-                  >
-                    »
-                  </Button>
+                  <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(1)} className="h-8 w-8 p-0 text-xs">«</Button>
+                  <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)} className="h-8 w-8 p-0 text-xs">‹</Button>
+                  <span className="text-xs font-mono text-ink-soft px-2">{safePage} / {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 w-8 p-0 text-xs">›</Button>
+                  <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)} className="h-8 w-8 p-0 text-xs">»</Button>
                 </div>
               </div>
             </>
