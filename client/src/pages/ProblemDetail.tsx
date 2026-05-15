@@ -94,7 +94,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
       {tab === 'solution' && <SolutionPanel problemId={p.id} />}
 
       {tab === 'solve' && (
-        <ResizablePanelGroup direction="horizontal" className="min-h-[600px]">
+        <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-12rem)]">
           <ResizablePanel defaultSize={40} minSize={20}>
             <div className="h-full overflow-y-auto pr-2">
               {descriptionCard}
@@ -102,7 +102,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={60} minSize={30}>
-            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 h-full">
+            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 h-full overflow-y-auto">
               <SolvePanel
                 problemId={p.id}
                 titleSlug={p.titleSlug}
