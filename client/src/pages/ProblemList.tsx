@@ -5,6 +5,7 @@ import { useT, useLang } from '@/contexts/LangContext';
 import { useFilters } from '@/hooks/useFilters';
 import { useDebounce } from '@/hooks/useDebounce';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,11 +44,21 @@ export function ProblemList() {
         search,
         paidOnly:
           typeof filters.paidOnly === 'boolean' ? (filters.paidOnly as boolean) : undefined,
+        status: filters.status as 'todo' | 'reviewing' | 'done' | undefined,
       },
       limit,
     },
     { staleTime: 60_000 },
   );
+
+  const progressQ = trpc.progress.listAll.useQuery(undefined, { staleTime: 30_000 });
+  const dueQ = trpc.progress.listDue.useQuery(undefined, { staleTime: 30_000 });
+
+  const progressMap = new Map<number, string>();
+  for (const p of (progressQ.data ?? []) as Array<{ problemId: number; status: string }>) {
+    progressMap.set(p.problemId, p.status);
+  }
+  const dueSet = new Set(dueQ.data ?? []);
 
   const items = (query.data?.items ?? []) as ProblemRow[];
   const total = query.data?.total ?? items.length;
@@ -77,6 +88,28 @@ export function ProblemList() {
                 <SelectItem value="Easy">{t('difficulty.Easy')}</SelectItem>
                 <SelectItem value="Medium">{t('difficulty.Medium')}</SelectItem>
                 <SelectItem value="Hard">{t('difficulty.Hard')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="font-mono text-xs text-ink-soft block mb-1">
+              {t('filter.status')}
+            </label>
+            <Select
+              value={(filters.status as string) ?? 'all'}
+              onValueChange={(v) => {
+                setFilter('status', v === 'all' ? undefined : v);
+                setLimit(PAGE);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('filter.all')}</SelectItem>
+                <SelectItem value="todo">{t('status.todo')}</SelectItem>
+                <SelectItem value="reviewing">{t('status.reviewing')}</SelectItem>
+                <SelectItem value="done">{t('status.done')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -120,6 +153,7 @@ export function ProblemList() {
                     <th className="py-2 pr-3 w-16">{t('problemList.no')}</th>
                     <th className="pr-3">{t('problemList.name')}</th>
                     <th className="pr-3 w-24">{t('problemList.diff')}</th>
+                    <th className="pr-3 w-28">{t('filter.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -141,6 +175,16 @@ export function ProblemList() {
                       </td>
                       <td className="pr-3 py-2">
                         <DifficultyBadge difficulty={p.difficulty} />
+                      </td>
+                      <td className="pr-3 py-2">
+                        <div className="flex items-center gap-1">
+                          {progressMap.has(p.id) && (
+                            <StatusBadge status={progressMap.get(p.id) as 'todo' | 'reviewing' | 'done'} />
+                          )}
+                          {dueSet.has(p.id) && (
+                            <span className="w-2 h-2 rounded-full bg-orange-400" title={t('progress.dueForReview')} />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
