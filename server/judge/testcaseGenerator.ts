@@ -103,7 +103,22 @@ Rules:
 - For problems whose answer order is irrelevant (e.g. "any valid pair" answers), still pick ONE canonical answer that the reference solution would return; do not include alternates.
 - DO NOT include explanations, markdown, or anything outside the JSON object.`;
 
+const MAX_RETRIES = 2;
+
 export async function generateTestcaseSuite(p: ProblemPromptInput): Promise<GeneratedSuite> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await _generateOnce(p);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[testcaseGenerator] Attempt ${attempt + 1} failed: ${lastError.message}`);
+    }
+  }
+  throw lastError!;
+}
+
+async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
   const { methodName: detectedMethod, signature } = extractPythonSignature(p.codeSnippetsJson);
   const description = stripHtml(p.contentEn || p.contentZh, 5000);
 
