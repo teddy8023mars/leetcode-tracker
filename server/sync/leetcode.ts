@@ -24,6 +24,8 @@ export async function gql<T>(
   for (let attempt = 1; attempt <= 3; attempt++) {
     await throttle();
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await _fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -31,7 +33,9 @@ export async function gql<T>(
           'user-agent': 'Mozilla/5.0 leetcode-tracker',
         },
         body: JSON.stringify({ query, variables }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!res.ok) {
         if (res.status >= 500 || res.status === 429) {
           lastErr = new Error(`LeetCode HTTP ${res.status}`);
@@ -40,7 +44,11 @@ export async function gql<T>(
         }
         throw new Error(`LeetCode HTTP ${res.status}`);
       }
-      const json = (await res.json()) as { data: T };
+      const text = await res.text();
+      if (!text.startsWith('{')) {
+        throw new Error('LeetCode returned non-JSON (likely Cloudflare block)');
+      }
+      const json = JSON.parse(text) as { data: T };
       return json.data;
     } catch (e) {
       lastErr = e;

@@ -23,17 +23,23 @@ export async function probeLeetcodeCn(): Promise<{ available: boolean; succeeded
   let ok = 0;
   for (const slug of PROBE_SLUGS) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
       const res = await _probeFetch(LEETCODE_CN_GRAPHQL, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ query: PROBE_QUERY, variables: { titleSlug: slug } }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
-        const json = (await res.json()) as { data?: { question?: { translatedTitle?: string } } };
+        const text = await res.text();
+        if (!text.startsWith('{')) continue;
+        const json = JSON.parse(text) as { data?: { question?: { translatedTitle?: string } } };
         if (json?.data?.question?.translatedTitle) ok++;
       }
     } catch {
-      // ignore individual failures
+      // ignore individual failures (timeout, network, Cloudflare block)
     }
   }
   return { available: ok >= 2, succeeded: ok };

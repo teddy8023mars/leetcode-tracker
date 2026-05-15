@@ -40,7 +40,7 @@ export const en = {
   },
   sync: {
     pageTitle: 'Sync',
-    runManual: 'Run manual sync',
+    runManual: 'Refresh problem data',
     recent: 'Recent runs',
     type: 'Type',
     status: { running: 'Running', success: 'Success', failed: 'Failed', partial: 'Partial' },

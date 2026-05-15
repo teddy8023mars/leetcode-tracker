@@ -41,7 +41,7 @@ export const zh: Dict = {
   },
   sync: {
     pageTitle: '同步',
-    runManual: '手动触发同步',
+    runManual: '重新抓取题目数据',
     recent: '最近运行',
     type: '类型',
     status: { running: '运行中', success: '成功', failed: '失败', partial: '部分成功' },
