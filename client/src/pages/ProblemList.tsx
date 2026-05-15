@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useT, useLang } from '@/contexts/LangContext';
 import { useFilters } from '@/hooks/useFilters';
@@ -33,6 +33,7 @@ const PAGE_SIZES = [20, 50, 100];
 export function ProblemList() {
   const t = useT();
   const { lang } = useLang();
+  const [, navigate] = useLocation();
   const { filters, setFilter, reset } = useFilters({ defaults: {} });
   const search = useDebounce(filters.search as string | undefined, 300);
   const [pageSize, setPageSize] = useState(50);
@@ -141,7 +142,7 @@ export function ProblemList() {
               className="font-mono max-w-md"
             />
             <span className="text-xs text-ink-soft font-mono whitespace-nowrap">
-              {t('problemList.showing', { shown: items.length, total })}
+              {t('problemList.showing', { shown: `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, allItems.length)}`, total: allItems.length })}
             </span>
           </div>
 
@@ -162,7 +163,7 @@ export function ProblemList() {
                 </thead>
                 <tbody>
                   {items.map((p) => (
-                    <tr key={p.id} className="border-t border-border hover:bg-secondary/50">
+                    <tr key={p.id} className="border-t border-border hover:bg-secondary/50 cursor-pointer" onClick={() => navigate(`/problems/${p.titleSlug}`)}>
                       <td className="py-2 pr-3 font-mono text-ink-soft">{p.frontendId}</td>
                       <td className="pr-3 py-2">
                         <Link
