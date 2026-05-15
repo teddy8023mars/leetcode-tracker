@@ -143,8 +143,9 @@ export async function generateTestcaseSuite(p: ProblemPromptInput): Promise<Gene
     throw new Error("LLM returned empty content for testcase generation");
   }
   let parsed: GeneratedSuite;
+  const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   try {
-    parsed = JSON.parse(content) as GeneratedSuite;
+    parsed = JSON.parse(cleaned) as GeneratedSuite;
   } catch (e) {
     console.error(
       "[testcaseGenerator] JSON.parse failed. len=" +
