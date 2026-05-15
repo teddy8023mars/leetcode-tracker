@@ -48,8 +48,17 @@ function extractPythonSignature(snippetsJson: unknown): { methodName: string | n
     (s) => s?.langSlug === "python3" || s?.langSlug === "python" || s?.lang === "Python3" || s?.lang === "Python",
   );
   if (!py?.code) return { methodName: null, signature: null };
-  const match = py.code.match(/def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(self[^)]*\)/);
-  if (!match) return { methodName: null, signature: py.code.split(/\r?\n/).slice(0, 5).join("\n") };
+  // Find the method inside class Solution (skip __init__ and methods from other classes like ListNode/TreeNode)
+  const solutionStart = py.code.indexOf('class Solution');
+  const solutionCode = solutionStart >= 0 ? py.code.slice(solutionStart) : py.code;
+  const match = solutionCode.match(/def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(self[^)]*\)/);
+  if (!match || match[1] === '__init__') {
+    // Try next method after __init__
+    const allMethods = Array.from(solutionCode.matchAll(/def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(self[^)]*\)/g));
+    const nonInit = allMethods.find(m => m[1] !== '__init__');
+    if (nonInit) return { methodName: nonInit[1], signature: nonInit[0] };
+    return { methodName: null, signature: solutionCode.split(/\r?\n/).slice(0, 5).join("\n") };
+  }
   return { methodName: match[1], signature: match[0] };
 }
 
@@ -89,9 +98,8 @@ You must output a JSON object describing a test suite that covers correctness AN
 Output schema (REQUIRED — no extra fields, no commentary):
 {
   "methodName": "<exact method name on class Solution>",
-  "referenceSolution": "<a complete, correct Python implementation of class Solution that solves the problem. Use only Python stdlib. Must work for all the cases below. We will execute it to compute canonical expected values.>",
   "cases": [
-    { "input": [<arg1>, <arg2>, ...], "expected": <expected return value, your best guess; will be recomputed via referenceSolution> },
+    { "input": [<arg1>, <arg2>, ...], "expected": <expected return value> },
     ...
   ]
 }
@@ -99,10 +107,13 @@ Output schema (REQUIRED — no extra fields, no commentary):
 Rules:
 - The KEY for arguments MUST be exactly "input" — NOT "args", NOT "arguments", NOT "params".
 - "input" MUST be an array of positional arguments matching the method signature, in order.
-- "expected" MUST be the canonical expected return value (use lists not tuples; use null for None).
+- For linked list parameters (ListNode), represent them as plain arrays (e.g. [1,2,4] instead of a ListNode).
+- For tree parameters (TreeNode), represent them as level-order arrays (e.g. [1,2,3,null,null,4,5]).
+- Return values that are ListNode/TreeNode should also be represented as arrays.
+- "expected" MUST be the correct expected return value (use lists not tuples; use null for None).
 - Keep total cases between 8 and 14.
-- For problems whose answer order is irrelevant (e.g. "any valid pair" answers), still pick ONE canonical answer that the reference solution would return; do not include alternates.
-- DO NOT include explanations, markdown, or anything outside the JSON object.`;
+- For problems whose answer order is irrelevant, still pick ONE canonical answer; do not include alternates.
+- DO NOT include explanations, markdown, referenceSolution, or anything outside the JSON object.`;
 
 const MAX_RETRIES = 2;
 
@@ -159,7 +170,6 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
           type: "object",
           properties: {
             methodName: { type: "string" },
-            referenceSolution: { type: "string" },
             cases: {
               type: "array",
               items: {
@@ -172,7 +182,7 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
               },
             },
           },
-          required: ["methodName", "referenceSolution", "cases"],
+          required: ["methodName", "cases"],
         },
       },
     },
@@ -183,15 +193,22 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
     throw new Error("LLM returned empty content for testcase generation");
   }
   let parsed: GeneratedSuite;
-  const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+  // Extract JSON object from response — LLM may wrap it in text or markdown
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const cleaned = jsonMatch ? jsonMatch[0] : content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   try {
     parsed = JSON.parse(cleaned) as GeneratedSuite;
   } catch {
     try {
-      parsed = JSON.parse(jsonrepair(cleaned)) as GeneratedSuite;
+      const repaired = jsonrepair(cleaned);
+      const obj = JSON.parse(repaired);
+      if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+        throw new Error("Repaired JSON is not an object");
+      }
+      parsed = obj as GeneratedSuite;
       console.warn("[testcaseGenerator] Parsed after jsonrepair");
     } catch (e2) {
-      console.error("[testcaseGenerator] jsonrepair failed. head=" + content.slice(0, 300));
+      console.error("[testcaseGenerator] JSON parse failed. head=" + content.slice(0, 300));
       throw new Error(
         "LLM returned invalid JSON for testcase generation: " +
           (e2 instanceof Error ? e2.message : String(e2)),
@@ -250,5 +267,23 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
   }
 
   parsed.source = "llm";
+
+  // Second LLM call: get a reference solution as plain text (no JSON escaping issues)
+  try {
+    const refResp = await invokeLLM({
+      messages: [
+        { role: "system", content: "You write correct Python solutions for LeetCode problems. Output ONLY the Python code for class Solution, nothing else. No markdown fences, no explanation." },
+        { role: "user", content: `Write a correct Python solution for: ${p.titleEn || p.titleSlug}\n\n${signature || ""}\n\n${description.slice(0, 2000)}` },
+      ],
+    });
+    const refContent = (refResp as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "";
+    const refCode = refContent.replace(/^```(?:python)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    if (refCode.includes("class Solution") && refCode.includes("def ")) {
+      parsed.referenceSolution = refCode;
+    }
+  } catch (e) {
+    console.warn("[testcaseGenerator] Failed to get reference solution:", e);
+  }
+
   return parsed;
 }

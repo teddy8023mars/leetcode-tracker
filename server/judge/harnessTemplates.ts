@@ -135,35 +135,33 @@ def norm(x):
         return [norm(e) for e in x]
     return x
 
-# Detect which params expect ListNode/TreeNode from the method signature
-import inspect as _ins
-_sol_tmp = Solution()
-_method_tmp = getattr(_sol_tmp, method_name, None)
-_param_hints = {}
-if _method_tmp:
-    try:
-        _hints = _ins.get_annotations(_method_tmp.__func__ if hasattr(_method_tmp, '__func__') else _method_tmp)
-        _sig = _ins.signature(_method_tmp)
-        for _pi, (_pn, _pp) in enumerate(list(_sig.parameters.items())):
-            _h = _hints.get(_pn)
-            if _h is ListNode or (_h and getattr(_h, '__name__', '') == 'ListNode'):
-                _param_hints[_pi] = 'ListNode'
-            elif _h is TreeNode or (_h and getattr(_h, '__name__', '') == 'TreeNode'):
-                _param_hints[_pi] = 'TreeNode'
-            elif isinstance(_h, str) and 'ListNode' in _h:
-                _param_hints[_pi] = 'ListNode'
-            elif isinstance(_h, str) and 'TreeNode' in _h:
-                _param_hints[_pi] = 'TreeNode'
-    except Exception:
-        pass
+# Auto-detect if args need ListNode/TreeNode conversion using a probe call
+_convert_mode = 'raw'  # 'raw', 'linked', 'tree'
+_first_case_args = cases[0].get("input") or cases[0].get("args") or [] if cases else []
+if isinstance(_first_case_args, list) and any(isinstance(a, list) for a in _first_case_args):
+    _probe_inst = Solution()
+    _probe_method = getattr(_probe_inst, method_name, None)
+    if _probe_method:
+        try:
+            _probe_method(*_first_case_args)
+        except (TypeError, AttributeError):
+            _linked_args = [_list_to_linked(a) if isinstance(a, list) else a for a in _first_case_args]
+            try:
+                _probe_inst2 = Solution()
+                _probe_method2 = getattr(_probe_inst2, method_name)
+                _probe_method2(*_linked_args)
+                _convert_mode = 'linked'
+            except (TypeError, AttributeError):
+                _convert_mode = 'tree'
+        except Exception:
+            pass
 
-def _convert_arg(idx, val):
-    hint = _param_hints.get(idx)
-    if hint == 'ListNode' and isinstance(val, list):
-        return _list_to_linked(val)
-    if hint == 'TreeNode' and isinstance(val, list):
-        return _list_to_tree(val)
-    return val
+def _convert_args(args):
+    if _convert_mode == 'linked':
+        return [_list_to_linked(a) if isinstance(a, list) else a for a in args]
+    if _convert_mode == 'tree':
+        return [_list_to_tree(a) if isinstance(a, list) else a for a in args]
+    return args
 
 passed = 0
 total = len(cases)
@@ -175,7 +173,7 @@ for i, c in enumerate(cases):
         args = []
     if not isinstance(args, list):
         args = [args]
-    args = [_convert_arg(ai, av) for ai, av in enumerate(args)]
+    args = _convert_args(args)
     expected = c.get("expected")
     inst = Solution()
     method = getattr(inst, method_name, None)
@@ -187,22 +185,23 @@ for i, c in enumerate(cases):
     try:
         actual = method(*args)
         elapsed_ms = int((time.time() - t0) * 1000)
-        actual_norm = norm(actual)
-        ok = actual_norm == expected
-        if ok:
-            passed += 1
-        try:
-            actual_serialized = json.dumps(actual_norm)
-            actual_out = actual_norm
-            if len(actual_serialized) > 4000:
-                actual_out = actual_serialized[:4000] + "...[truncated]"
-        except Exception:
-            actual_out = repr(actual_norm)[:4000]
-        print(json.dumps({"i": i, "ok": ok, "actual": actual_out, "elapsedMs": elapsed_ms, "error": None}))
     except Exception as e:
         elapsed_ms = int((time.time() - t0) * 1000)
         print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": elapsed_ms,
                           "error": str(e) + "\\n" + traceback.format_exc()[-1500:]}))
+        continue
+    actual_norm = norm(actual)
+    ok = actual_norm == expected
+    if ok:
+        passed += 1
+    try:
+        actual_serialized = json.dumps(actual_norm)
+        actual_out = actual_norm
+        if len(actual_serialized) > 4000:
+            actual_out = actual_serialized[:4000] + "...[truncated]"
+    except Exception:
+        actual_out = repr(actual_norm)[:4000]
+    print(json.dumps({"i": i, "ok": ok, "actual": actual_out, "elapsedMs": elapsed_ms, "error": None}))
 
 print(json.dumps({"summary": True, "passed": passed, "total": total}))
 `;
