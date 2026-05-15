@@ -45,7 +45,13 @@ export function ProblemContent({ html }: { html: string | null | undefined }) {
   }, [html]);
   return (
     <article
-      className="prose prose-sm max-w-none overflow-hidden [&_pre]:bg-secondary [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:font-mono"
+      className="prose prose-sm max-w-none overflow-hidden [&_pre]:bg-secondary [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:font-mono [&_img]:rounded [&_img]:my-2"
+      ref={(el) => {
+        if (!el) return;
+        el.querySelectorAll('img').forEach((img) => {
+          img.onerror = () => { img.style.display = 'none'; };
+        });
+      }}
       dangerouslySetInnerHTML={{ __html: safe }}
     />
   );

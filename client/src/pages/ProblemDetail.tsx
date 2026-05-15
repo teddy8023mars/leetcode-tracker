@@ -121,6 +121,7 @@ function cleanSolutionMarkdown(raw: string): string {
     .replace(/<iframe[^>]*leetcode\.com\/playground\/([^/]+)\/shared[^>]*><\/iframe>\s*/gi,
       '> *See full code on [LeetCode Playground](https://leetcode.com/playground/$1/shared)*\n\n')
     .replace(/\{:align="[^"]*"\}/g, '')
+    .replace(/!\[[^\]]*\]\(https?:\/\/leetcode\.cn\/[^)]+\)/g, '')
     .trim();
 }
 
