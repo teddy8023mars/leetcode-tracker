@@ -36,6 +36,16 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const allQ = trpc.problems.list.useQuery({ limit: 200 }, { staleTime: 120_000 });
   const [tab, setTab] = useState<Tab>('description');
 
+  const { prev, next } = useMemo(() => {
+    const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
+    const sorted = [...all].sort((a, b) => a.frontendId - b.frontendId);
+    const idx = sorted.findIndex(x => x.titleSlug === titleSlug);
+    return {
+      prev: idx > 0 ? sorted[idx - 1] : null,
+      next: idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null,
+    };
+  }, [allQ.data, titleSlug]);
+
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
   if (!q.data) return <p className="text-ink-soft">{t('empty')}</p>;
   const p = q.data as ProblemDetailRow;
@@ -46,16 +56,6 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
   const containerWidth = tab === 'solve' ? 'w-full' : 'max-w-5xl';
-
-  const { prev, next } = useMemo(() => {
-    const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
-    const sorted = [...all].sort((a, b) => a.frontendId - b.frontendId);
-    const idx = sorted.findIndex(x => x.titleSlug === titleSlug);
-    return {
-      prev: idx > 0 ? sorted[idx - 1] : null,
-      next: idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null,
-    };
-  }, [allQ.data, titleSlug]);
 
   const similarQuestions = (p.similarQuestionsJson ?? []) as SimilarQuestion[];
   const topicTags = (p.topicTagsJson ?? []) as { name: string; slug: string }[];
