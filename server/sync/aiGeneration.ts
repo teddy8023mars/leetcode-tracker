@@ -1,4 +1,5 @@
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { getDb } from '../db';
 import {
   aiGenerationLocks,
@@ -43,6 +44,19 @@ const RESPONSE_SCHEMA = {
 };
 
 // ---------------------------------------------------------------------------
+// Zod schema for validating LLM response
+// ---------------------------------------------------------------------------
+
+const AiResponseSchema = z.object({
+  approach: z.string().min(1),
+  complexity: z.string().min(1),
+  pythonCode: z.string().min(1),
+  javaCode: z.string().min(1),
+  cppCode: z.string().min(1),
+  pitfalls: z.string().default(''),
+});
+
+// ---------------------------------------------------------------------------
 // System prompts
 // ---------------------------------------------------------------------------
 
@@ -74,6 +88,8 @@ const SYSTEM_PROMPT_ZH = `你是一位算法专家。给定一道 LeetCode 题�
  * Generate (or regenerate) an AI solution for a given problem and language.
  * Uses an `aiGenerationLocks` row to prevent concurrent generation.
  */
+const LOCK_TTL_MS = 5 * 60 * 1000;
+
 export async function generateAiSolution(
   problemId: number,
   language: Language,
@@ -81,43 +97,48 @@ export async function generateAiSolution(
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
 
-  // Check for an unexpired lock
+  // Load problem first (before lock) to fail fast on NOT_FOUND
+  const problemRows = await db
+    .select()
+    .from(problems)
+    .where(eq(problems.id, problemId))
+    .limit(1);
+  const problem = problemRows[0];
+  if (!problem) throw new Error(`Problem ${problemId} not found`);
+
+  // Acquire lock atomically: insert or update only if the existing lock is expired
   const now = new Date();
-  const existingLocks = await db
+  const lockedUntil = new Date(now.getTime() + LOCK_TTL_MS);
+
+  await db
+    .insert(aiGenerationLocks)
+    .values({ problemId, language, lockedAt: now, lockedUntil })
+    .onDuplicateKeyUpdate({
+      set: {
+        lockedAt: sql`CASE WHEN ${aiGenerationLocks.lockedUntil} < NOW() THEN ${now} ELSE ${aiGenerationLocks.lockedAt} END`,
+        lockedUntil: sql`CASE WHEN ${aiGenerationLocks.lockedUntil} < NOW() THEN ${lockedUntil} ELSE ${aiGenerationLocks.lockedUntil} END`,
+      },
+    });
+
+  // Verify we actually own the lock by checking our specific lockedUntil timestamp
+  const lockRows = await db
     .select()
     .from(aiGenerationLocks)
     .where(
       and(
         eq(aiGenerationLocks.problemId, problemId),
         eq(aiGenerationLocks.language, language),
-        gt(aiGenerationLocks.lockedUntil, now),
       ),
     )
     .limit(1);
-
-  if (existingLocks.length > 0) {
+  const lock = lockRows[0];
+  if (!lock || lock.lockedUntil.getTime() !== lockedUntil.getTime()) {
     throw new Error(
       `AI solution generation is already in progress for problem ${problemId} (${language})`,
     );
   }
 
-  // Acquire lock: lockedUntil = NOW + 5 minutes
-  const lockedUntil = new Date(now.getTime() + 5 * 60 * 1000);
-  await db
-    .insert(aiGenerationLocks)
-    .values({ problemId, language, lockedUntil })
-    .onDuplicateKeyUpdate({ set: { lockedAt: now, lockedUntil } });
-
   try {
-    // Load problem from DB
-    const problemRows = await db
-      .select()
-      .from(problems)
-      .where(eq(problems.id, problemId))
-      .limit(1);
-    const problem = problemRows[0];
-    if (!problem) throw new Error(`Problem ${problemId} not found`);
-
     // Build user message content
     const title = language === 'zh' ? (problem.titleZh ?? problem.titleEn ?? '') : (problem.titleEn ?? '');
     const content = language === 'zh'
@@ -177,17 +198,10 @@ export async function generateAiSolution(
     const rawContent = result?.choices?.[0]?.message?.content ?? '';
     const modelVersion = result?.model ?? null;
 
-    // Parse JSON response
-    let parsed: {
-      approach: string;
-      complexity: string;
-      pythonCode: string;
-      javaCode: string;
-      cppCode: string;
-      pitfalls?: string;
-    };
+    // Parse and validate JSON response
+    let parsed: z.infer<typeof AiResponseSchema>;
     try {
-      parsed = JSON.parse(rawContent) as typeof parsed;
+      parsed = AiResponseSchema.parse(JSON.parse(rawContent));
     } catch {
       throw new Error(`Failed to parse LLM JSON response: ${rawContent.slice(0, 200)}`);
     }
@@ -203,7 +217,7 @@ export async function generateAiSolution(
         pythonCode: parsed.pythonCode,
         javaCode: parsed.javaCode,
         cppCode: parsed.cppCode,
-        pitfallsMarkdown: parsed.pitfalls ?? null,
+        pitfallsMarkdown: parsed.pitfalls || null,
         generatedAt: new Date(),
         modelVersion,
       })
@@ -214,7 +228,7 @@ export async function generateAiSolution(
           pythonCode: parsed.pythonCode,
           javaCode: parsed.javaCode,
           cppCode: parsed.cppCode,
-          pitfallsMarkdown: parsed.pitfalls ?? null,
+          pitfallsMarkdown: parsed.pitfalls || null,
           generatedAt: new Date(),
           modelVersion,
         },
@@ -236,18 +250,16 @@ export async function generateAiSolution(
     if (!saved) throw new Error('Failed to retrieve saved AI solution after upsert');
     return saved;
   } finally {
-    // Always release the lock
-    try {
-      await db
-        .delete(aiGenerationLocks)
-        .where(
-          and(
-            eq(aiGenerationLocks.problemId, problemId),
-            eq(aiGenerationLocks.language, language),
-          ),
-        );
-    } catch (e) {
-      console.warn('[aiGeneration] failed to release lock', e);
-    }
+    // Only release our own lock (matched by our specific lockedUntil timestamp)
+    await db
+      .delete(aiGenerationLocks)
+      .where(
+        and(
+          eq(aiGenerationLocks.problemId, problemId),
+          eq(aiGenerationLocks.language, language),
+          eq(aiGenerationLocks.lockedUntil, lockedUntil),
+        ),
+      )
+      .catch(() => {});
   }
 }
