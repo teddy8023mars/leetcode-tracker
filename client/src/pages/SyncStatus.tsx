@@ -74,12 +74,18 @@ export function SyncStatus() {
       </h2>
 
       <table className="w-full text-sm">
+        <colgroup>
+          <col style={{ width: '30%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '25%' }} />
+          <col style={{ width: '30%' }} />
+        </colgroup>
         <thead className="text-left text-ink-soft font-mono text-xs">
           <tr className="border-b border-border">
-            <th className="py-2 pr-3">{t('sync.type')}</th>
-            <th className="pr-3">{t('sync.statusLabel')}</th>
-            <th className="pr-3">{t('sync.items')}</th>
-            <th className="pr-3">{t('sync.started')}</th>
+            <th className="py-2">{t('sync.type')}</th>
+            <th>{t('sync.statusLabel')}</th>
+            <th>{t('sync.items')}</th>
+            <th>{t('sync.started')}</th>
           </tr>
         </thead>
         <tbody>
@@ -95,11 +101,11 @@ export function SyncStatus() {
 
             return (
               <tr key={r.id} className="border-t border-border">
-                <td className="py-2 pr-3 font-mono">{r.syncType}</td>
-                <td className="pr-3 w-28">
+                <td className="py-2 font-mono">{r.syncType}</td>
+                <td>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-block w-16 text-center px-2 py-0.5 rounded font-mono text-[11px] ${
+                      className={`inline-block w-14 text-center py-0.5 rounded font-mono text-[11px] ${
                         STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
                       }`}
                     >
@@ -112,14 +118,14 @@ export function SyncStatus() {
                         type="button"
                         onClick={() => cancel.mutate({ syncLogId: r.id })}
                         disabled={cancel.isPending}
-                        className="text-[11px] text-red-500 hover:text-red-700 font-mono"
+                        className="px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-100 rounded font-mono"
                       >
-                        ✕
+                        Cancel
                       </button>
                     )}
                   </div>
                 </td>
-                <td className="pr-3 font-mono">
+                <td className="font-mono">
                   {pct !== null ? (
                     <div className="flex items-center gap-2">
                       <Progress value={pct} className="h-2 w-24" />
@@ -129,7 +135,7 @@ export function SyncStatus() {
                     processed
                   )}
                 </td>
-                <td className="pr-3 font-mono text-ink-soft">
+                <td className="font-mono text-ink-soft">
                   {new Date(r.startedAt).toLocaleString()}
                 </td>
               </tr>
