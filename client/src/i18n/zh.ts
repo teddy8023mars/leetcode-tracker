@@ -66,6 +66,7 @@ export const zh: Dict = {
     backToProblems: '\u2190 返回题目列表',
     showing: '显示 {shown} / {total}',
     loadMore: '加载更多',
+    perPage: '每页',
     no: '#',
     name: '题目',
     diff: '难度',

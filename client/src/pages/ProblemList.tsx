@@ -28,14 +28,15 @@ type ProblemRow = {
   paidOnly?: boolean;
 };
 
-const PAGE = 50;
+const PAGE_SIZES = [20, 50, 100];
 
 export function ProblemList() {
   const t = useT();
   const { lang } = useLang();
   const { filters, setFilter, reset } = useFilters({ defaults: {} });
   const search = useDebounce(filters.search as string | undefined, 300);
-  const [limit, setLimit] = useState(PAGE);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
 
   const query = trpc.problems.list.useQuery(
     {
@@ -46,7 +47,7 @@ export function ProblemList() {
           typeof filters.paidOnly === 'boolean' ? (filters.paidOnly as boolean) : undefined,
         status: filters.status as 'todo' | 'reviewing' | 'done' | undefined,
       },
-      limit,
+      limit: 200,
     },
     { staleTime: 60_000 },
   );
@@ -60,8 +61,11 @@ export function ProblemList() {
   }
   const dueSet = new Set(dueQ.data ?? []);
 
-  const items = (query.data?.items ?? []) as ProblemRow[];
-  const total = query.data?.total ?? items.length;
+  const allItems = (query.data?.items ?? []) as ProblemRow[];
+  const total = query.data?.total ?? allItems.length;
+  const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const items = allItems.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="space-y-4">
@@ -77,7 +81,7 @@ export function ProblemList() {
               value={(filters.difficulty as string) ?? 'all'}
               onValueChange={(v) => {
                 setFilter('difficulty', v === 'all' ? undefined : v);
-                setLimit(PAGE);
+                setPage(1);
               }}
             >
               <SelectTrigger>
@@ -99,7 +103,7 @@ export function ProblemList() {
               value={(filters.status as string) ?? 'all'}
               onValueChange={(v) => {
                 setFilter('status', v === 'all' ? undefined : v);
-                setLimit(PAGE);
+                setPage(1);
               }}
             >
               <SelectTrigger>
@@ -118,7 +122,7 @@ export function ProblemList() {
             size="sm"
             onClick={() => {
               reset();
-              setLimit(PAGE);
+              setPage(1);
             }}
           >
             {t('filter.clear')}
@@ -132,7 +136,7 @@ export function ProblemList() {
               value={(filters.search as string) ?? ''}
               onChange={(e) => {
                 setFilter('search', e.target.value || undefined);
-                setLimit(PAGE);
+                setPage(1);
               }}
               className="font-mono max-w-md"
             />
@@ -191,17 +195,66 @@ export function ProblemList() {
                 </tbody>
               </table>
 
-              {items.length < total && (
-                <div className="mt-4 flex justify-center">
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-ink-soft font-mono">{t('problemList.perPage')}</span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+                  >
+                    <SelectTrigger className="w-20 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZES.map((s) => (
+                        <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setLimit((l) => l + PAGE)}
+                    disabled={safePage <= 1}
+                    onClick={() => setPage(1)}
+                    className="h-8 w-8 p-0 text-xs"
                   >
-                    {t('problemList.loadMore')}
+                    «
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="h-8 w-8 p-0 text-xs"
+                  >
+                    ‹
+                  </Button>
+                  <span className="text-xs font-mono text-ink-soft px-2">
+                    {safePage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="h-8 w-8 p-0 text-xs"
+                  >
+                    ›
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage(totalPages)}
+                    className="h-8 w-8 p-0 text-xs"
+                  >
+                    »
                   </Button>
                 </div>
-              )}
+              </div>
             </>
           )}
         </section>

@@ -65,6 +65,7 @@ export const en = {
     backToProblems: '\u2190 All problems',
     showing: 'Showing {shown} of {total}',
     loadMore: 'Load more',
+    perPage: 'Per page',
     no: '#',
     name: 'Title',
     diff: 'Difficulty',
