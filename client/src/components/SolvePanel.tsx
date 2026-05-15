@@ -78,19 +78,33 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
   const isLoggedIn = !!me.data;
 
+  const codeKey = (l: Lang) => `lc.code.${titleSlug}.${l}`;
   const [language, setLanguage] = useState<Lang>('python');
-  const [code, setCode] = useState<string>(() => pickStarter('python', codeSnippets));
+  const [code, setCode] = useState<string>(() => {
+    const saved = localStorage.getItem(codeKey('python'));
+    return saved || pickStarter('python', codeSnippets);
+  });
   const [seededLang, setSeededLang] = useState<Lang>('python');
   const [openSubmissionId, setOpenSubmissionId] = useState<number | null>(null);
 
   // Reseed code when language switches.
   useEffect(() => {
     if (language !== seededLang) {
-      setCode(pickStarter(language, codeSnippets));
+      const saved = localStorage.getItem(codeKey(language));
+      setCode(saved || pickStarter(language, codeSnippets));
       setSeededLang(language);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // Auto-save code to localStorage
+  useEffect(() => {
+    const starter = pickStarter(language, codeSnippets);
+    if (code !== starter) {
+      localStorage.setItem(codeKey(language), code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   const utils = trpc.useUtils();
   const runMut = trpc.judge.run.useMutation({
@@ -98,6 +112,18 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
       utils.judge.listSubmissions.invalidate({ problemId });
     },
   });
+
+  // Ctrl+Enter to submit
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !runMut.isPending && code.trim().length > 0) {
+        e.preventDefault();
+        runMut.mutate({ problemId, language, code });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [code, language, problemId, runMut]);
 
   const submissions = trpc.judge.listSubmissions.useQuery(
     { problemId, limit: 10 },
@@ -134,6 +160,16 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
         <span className="text-sm font-mono">{LANG_LABELS[language]}</span>
 
         <div className="ml-auto flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(codeKey(language));
+              setCode(pickStarter(language, codeSnippets));
+            }}
+            className="text-[11px] font-mono text-ink-soft hover:text-ink"
+          >
+            {t('problem.reset')}
+          </button>
           <button
             type="button"
             disabled={runMut.isPending || code.trim().length === 0}
