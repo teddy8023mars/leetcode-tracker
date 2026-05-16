@@ -77,11 +77,11 @@ body {
   background-color: transparent !important;
 }
 
-/* Reset all syntax highlight colors to readable ones in dark mode */
-.dark .prose pre span[style],
-.dark .streamdown pre span[style],
-.dark [data-streamdown] pre span[style] {
-  color: inherit !important;
+/* Fix dark-on-dark syntax colors: brighten any color that's too dark for the background */
+.dark .prose pre [style*="color:#"],
+.dark .streamdown pre [style*="color:#"],
+.dark [data-streamdown] pre [style*="color:#"] {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 .dark .prose :where(code):not(:where(pre *)) {
