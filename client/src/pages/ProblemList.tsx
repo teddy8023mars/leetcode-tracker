@@ -70,6 +70,7 @@ export function ProblemList() {
   const search = useDebounce(filters.search as string | undefined, 300);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'id' | 'difficulty'>('id');
 
   const query = trpc.problems.list.useQuery(
     {
@@ -111,9 +112,14 @@ export function ProblemList() {
   }, [rawItems]);
 
   const tagFilter = filters.tag as string | undefined;
-  const allItems = tagFilter
+  const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
+  const filteredItems = tagFilter
     ? rawItems.filter(p => (p.topicTagsJson ?? []).some(t => t.slug === tagFilter))
     : rawItems;
+  const allItems = [...filteredItems].sort((a, b) => {
+    if (sortBy === 'difficulty') return (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1);
+    return a.frontendId - b.frontendId;
+  });
   const total = allItems.length;
   const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -232,9 +238,13 @@ export function ProblemList() {
               <table className="w-full text-sm">
                 <thead className="text-left text-ink-soft font-mono text-xs">
                   <tr className="border-b border-border">
-                    <th className="py-2 pr-3 w-16">{t('problemList.no')}</th>
+                    <th className="py-2 pr-3 w-16 cursor-pointer hover:text-ink" onClick={() => { setSortBy('id'); setPage(1); }}>
+                      {t('problemList.no')} {sortBy === 'id' && '↑'}
+                    </th>
                     <th className="pr-3">{t('problemList.name')}</th>
-                    <th className="pr-3 w-24">{t('problemList.diff')}</th>
+                    <th className="pr-3 w-24 cursor-pointer hover:text-ink" onClick={() => { setSortBy('difficulty'); setPage(1); }}>
+                      {t('problemList.diff')} {sortBy === 'difficulty' && '↑'}
+                    </th>
                     <th className="pr-3 w-28">{t('filter.status')}</th>
                   </tr>
                 </thead>
