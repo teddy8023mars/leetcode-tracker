@@ -50,6 +50,10 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
+html {
+  font-size: 16.5px;
+}
+
 :root {
   /* Blueprint palette (M1 spec) */
   --blueprint-bg: #FAFBFC;
