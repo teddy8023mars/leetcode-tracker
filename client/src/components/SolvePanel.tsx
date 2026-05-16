@@ -316,6 +316,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           runMut={runMut}
           verdictPill={verdictPill}
           exampleTestcases={exampleTestcases}
+          codeSnippets={codeSnippets}
           t={t}
         />
       </div>
@@ -582,34 +583,45 @@ function VerdictDot({ verdict }: { verdict: Verdict }) {
   return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
 }
 
-function parseExampleTestcases(raw: string | null | undefined): Array<{ label: string; lines: string[] }> {
+function extractParamNames(snippets: CodeSnippet[] | null | undefined): string[] {
+  if (!snippets) return [];
+  const py = snippets.find(s => s.langSlug === 'python3' || s.langSlug === 'python');
+  if (!py?.code) return [];
+  const match = py.code.match(/def\s+\w+\(self,?\s*([^)]*)\)/);
+  if (!match) return [];
+  return match[1].split(',').map(p => p.replace(/:.*$/, '').trim()).filter(Boolean);
+}
+
+function parseExampleTestcases(raw: string | null | undefined, paramNames: string[]): Array<{ label: string; params: Array<{ name: string; value: string }> }> {
   if (!raw) return [];
   const lines = raw.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
   if (lines.length === 0) return [];
-  // Group lines into cases — heuristic: each case has the same number of params
-  // Try grouping by 1, 2, 3 params and pick the one that divides evenly
-  for (const groupSize of [2, 3, 1, 4]) {
-    if (lines.length % groupSize === 0) {
-      const cases: Array<{ label: string; lines: string[] }> = [];
-      for (let i = 0; i < lines.length; i += groupSize) {
-        cases.push({ label: `Case ${cases.length + 1}`, lines: lines.slice(i, i + groupSize) });
-      }
-      return cases;
-    }
+  const groupSize = paramNames.length > 0 ? paramNames.length : (
+    [2, 3, 1, 4].find(g => lines.length % g === 0) ?? lines.length
+  );
+  const cases: Array<{ label: string; params: Array<{ name: string; value: string }> }> = [];
+  for (let i = 0; i < lines.length; i += groupSize) {
+    const params = lines.slice(i, i + groupSize).map((line, j) => ({
+      name: paramNames[j] ?? `arg${j + 1}`,
+      value: line,
+    }));
+    cases.push({ label: `Case ${cases.length + 1}`, params });
   }
-  return [{ label: 'Case 1', lines }];
+  return cases;
 }
 
-function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
+function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippets, t }: {
   result: unknown;
   runMut: { isPending: boolean; isError: boolean; error?: { message?: string } | null };
   verdictPill: React.ReactNode;
   exampleTestcases: string | null | undefined;
+  codeSnippets: CodeSnippet[] | null | undefined;
   t: (key: string) => string;
 }) {
   const [bottomTab, setBottomTab] = useState<'cases' | 'result'>(result ? 'result' : 'cases');
   const [activeCase, setActiveCase] = useState(0);
-  const cases = useMemo(() => parseExampleTestcases(exampleTestcases), [exampleTestcases]);
+  const paramNames = useMemo(() => extractParamNames(codeSnippets), [codeSnippets]);
+  const cases = useMemo(() => parseExampleTestcases(exampleTestcases, paramNames), [exampleTestcases, paramNames]);
   const r = result as {
     verdict?: string; passedCount?: number; totalCount?: number; runtimeMs?: number;
     firstFail?: { i: number; input: unknown; expected: unknown; actual: unknown; error?: string };
@@ -665,9 +677,10 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
                 </div>
                 {cases[activeCase] && (
                   <div className="space-y-2">
-                    {cases[activeCase].lines.map((line, i) => (
+                    {cases[activeCase].params.map((p, i) => (
                       <div key={i}>
-                        <pre className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{line}</pre>
+                        <div className="text-xs text-ink-soft font-mono mb-0.5">{p.name} =</div>
+                        <pre className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{p.value}</pre>
                       </div>
                     ))}
                   </div>
@@ -708,6 +721,12 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
                     </div>
                     {r.cases[activeCase] && (
                       <div className="space-y-1 text-sm">
+                        {r.firstFail && r.cases[activeCase].i === r.firstFail.i && (
+                          <>
+                            <CaseBlock label={t('judge.input')} value={r.firstFail.input} />
+                            <CaseBlock label={t('judge.expected')} value={r.firstFail.expected} />
+                          </>
+                        )}
                         <CaseBlock label={t('judge.actual')} value={r.cases[activeCase].actual} />
                         {r.cases[activeCase].error && <CaseBlock label={t('judge.error')} value={r.cases[activeCase].error} pre />}
                       </div>
