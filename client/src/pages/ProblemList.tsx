@@ -32,26 +32,26 @@ type ProblemRow = {
 const PAGE_SIZES = [20, 50, 100];
 
 const COMPANIES = [
-  { slug: 'google', name: 'Google', zh: '谷歌' },
-  { slug: 'meta', name: 'Meta', zh: 'Meta' },
-  { slug: 'amazon', name: 'Amazon', zh: '亚马逊' },
-  { slug: 'microsoft', name: 'Microsoft', zh: '微软' },
-  { slug: 'apple', name: 'Apple', zh: '苹果' },
-  { slug: 'adobe', name: 'Adobe', zh: 'Adobe' },
-  { slug: 'nvidia', name: 'Nvidia', zh: '英伟达' },
-  { slug: 'uber', name: 'Uber', zh: '优步' },
-  { slug: 'salesforce', name: 'Salesforce', zh: 'Salesforce' },
-  { slug: 'linkedin', name: 'LinkedIn', zh: '领英' },
-  { slug: 'bytedance', name: 'ByteDance', zh: '字节跳动' },
-  { slug: 'tiktok', name: 'TikTok', zh: 'TikTok' },
-  { slug: 'netflix', name: 'Netflix', zh: '奈飞' },
-  { slug: 'tesla', name: 'Tesla', zh: '特斯拉' },
-  { slug: 'airbnb', name: 'Airbnb', zh: '爱彼迎' },
-  { slug: 'tencent', name: 'Tencent', zh: '腾讯' },
-  { slug: 'grab', name: 'Grab', zh: 'Grab' },
-  { slug: 'shopee', name: 'Shopee', zh: '虾皮' },
-  { slug: 'alibaba', name: 'Alibaba', zh: '阿里巴巴' },
-  { slug: 'baidu', name: 'Baidu', zh: '百度' },
+  { slug: 'google', name: 'Google', zh: '谷歌', domain: 'google.com' },
+  { slug: 'meta', name: 'Meta', zh: 'Meta', domain: 'meta.com' },
+  { slug: 'amazon', name: 'Amazon', zh: '亚马逊', domain: 'amazon.com' },
+  { slug: 'microsoft', name: 'Microsoft', zh: '微软', domain: 'microsoft.com' },
+  { slug: 'apple', name: 'Apple', zh: '苹果', domain: 'apple.com' },
+  { slug: 'adobe', name: 'Adobe', zh: 'Adobe', domain: 'adobe.com' },
+  { slug: 'nvidia', name: 'Nvidia', zh: '英伟达', domain: 'nvidia.com' },
+  { slug: 'uber', name: 'Uber', zh: '优步', domain: 'uber.com' },
+  { slug: 'salesforce', name: 'Salesforce', zh: 'Salesforce', domain: 'salesforce.com' },
+  { slug: 'linkedin', name: 'LinkedIn', zh: '领英', domain: 'linkedin.com' },
+  { slug: 'bytedance', name: 'ByteDance', zh: '字节跳动', domain: 'jobs.bytedance.com' },
+  { slug: 'tiktok', name: 'TikTok', zh: 'TikTok', domain: 'tiktok.com' },
+  { slug: 'netflix', name: 'Netflix', zh: '奈飞', domain: 'netflix.com' },
+  { slug: 'tesla', name: 'Tesla', zh: '特斯拉', domain: 'tesla.com' },
+  { slug: 'airbnb', name: 'Airbnb', zh: '爱彼迎', domain: 'airbnb.com' },
+  { slug: 'tencent', name: 'Tencent', zh: '腾讯', domain: 'tencent.com' },
+  { slug: 'grab', name: 'Grab', zh: 'Grab', domain: 'grab.com' },
+  { slug: 'shopee', name: 'Shopee', zh: '虾皮', domain: 'shopee.sg' },
+  { slug: 'alibaba', name: 'Alibaba', zh: '阿里巴巴', domain: 'alibaba.com' },
+  { slug: 'baidu', name: 'Baidu', zh: '百度', domain: 'baidu.com' },
 ];
 
 const TAG_ZH: Record<string, string> = {
@@ -253,7 +253,15 @@ export function ProblemList() {
                 <SelectItem value="all">{t('filter.all')}</SelectItem>
                 {COMPANIES.map(c => (
                   <SelectItem key={c.slug} value={c.slug}>
-                    {lang === 'zh' ? c.zh : c.name}
+                    <span className="inline-flex items-center gap-2">
+                      <img
+                        src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${c.domain}&size=32`}
+                        alt=""
+                        className="w-4 h-4"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      {lang === 'zh' ? c.zh : c.name}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
