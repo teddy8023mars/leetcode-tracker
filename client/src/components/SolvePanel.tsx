@@ -212,8 +212,8 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   }, [result, t]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-col gap-3 h-full">
+      <div className="flex items-center gap-3 flex-wrap shrink-0">
         <span className="text-xs font-mono uppercase tracking-widest text-ink-soft">
           {t('judge.language')}
         </span>
@@ -285,7 +285,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         </div>
       )}
 
-      <div className="border border-border rounded overflow-hidden resize-y" style={{ height: 400, minHeight: 200, overflow: 'hidden' }}>
+      <div className="border border-border rounded overflow-hidden flex-1 min-h-0">
         <Editor
           height="100%"
           language={MONACO_LANG[language]}
@@ -310,13 +310,15 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         )}
       </div>
 
-      <BottomPanel
-        result={result}
-        runMut={runMut}
-        verdictPill={verdictPill}
-        exampleTestcases={exampleTestcases}
-        t={t}
-      />
+      <div className="shrink-0">
+        <BottomPanel
+          result={result}
+          runMut={runMut}
+          verdictPill={verdictPill}
+          exampleTestcases={exampleTestcases}
+          t={t}
+        />
+      </div>
 
       {isLoggedIn && (
         <section className="space-y-2">

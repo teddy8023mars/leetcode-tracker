@@ -159,8 +159,8 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60} minSize={30}>
-          <div className="h-full overflow-y-auto">
-            <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
+          <div className="h-full flex flex-col">
+            <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6 flex-1 overflow-hidden flex flex-col">
               <SolvePanel
                 problemId={p.id}
                 titleSlug={p.titleSlug}
