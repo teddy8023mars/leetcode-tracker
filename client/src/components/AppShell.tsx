@@ -24,14 +24,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           <h1 className="font-sans text-lg font-extrabold tracking-tight leading-tight mb-4">
             LeetCode<br />Tracker
           </h1>
-          <div className="mb-4 flex gap-2">
+          <div className="mb-6 flex items-center gap-2">
             <Button size="sm" variant={lang === 'en' ? 'default' : 'outline'} onClick={() => setLang('en')}>EN</Button>
             <Button size="sm" variant={lang === 'zh' ? 'default' : 'outline'} onClick={() => setLang('zh')}>中</Button>
-          </div>
-          <div className="mb-6 flex gap-1">
-            <Button size="sm" variant={theme === 'light' ? 'default' : 'outline'} onClick={() => setTheme('light')}>☀</Button>
-            <Button size="sm" variant={theme === 'dark' ? 'default' : 'outline'} onClick={() => setTheme('dark')}>🌙</Button>
-            <Button size="sm" variant={theme === 'system' ? 'default' : 'outline'} onClick={() => setTheme('system')}>Auto</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
+              title={theme === 'system' ? 'Auto' : theme}
+            >
+              {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '🖥️'}
+            </Button>
           </div>
           <nav className="flex flex-col gap-1 flex-1">
             {NAV.map((item) => {
