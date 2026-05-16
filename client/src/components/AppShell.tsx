@@ -30,10 +30,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
-              title={theme === 'system' ? 'Auto' : theme}
+              onClick={() => setTheme(resolved === 'light' ? 'dark' : 'light')}
             >
-              {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '🖥️'}
+              {resolved === 'light' ? '🌙' : '☀️'}
             </Button>
           </div>
           <nav className="flex flex-col gap-1 flex-1">
