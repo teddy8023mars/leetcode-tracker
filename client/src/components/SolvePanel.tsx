@@ -587,9 +587,14 @@ function extractParamNames(snippets: CodeSnippet[] | null | undefined): string[]
   if (!snippets) return [];
   const py = snippets.find(s => s.langSlug === 'python3' || s.langSlug === 'python');
   if (!py?.code) return [];
-  const match = py.code.match(/def\s+\w+\(self,?\s*([^)]*)\)/);
-  if (!match) return [];
-  return match[1].split(',').map(p => p.replace(/:.*$/, '').trim()).filter(Boolean);
+  const solutionStart = py.code.indexOf('class Solution');
+  const code = solutionStart >= 0 ? py.code.slice(solutionStart) : py.code;
+  const methods = Array.from(code.matchAll(/def\s+(\w+)\(self,?\s*([^)]*)\)/g));
+  for (const m of methods) {
+    if (m[1] === '__init__') continue;
+    return m[2].split(',').map((p: string) => p.replace(/[:=].*$/, '').trim()).filter(Boolean);
+  }
+  return [];
 }
 
 function parseExampleTestcases(raw: string | null | undefined, paramNames: string[]): Array<{ label: string; params: Array<{ name: string; value: string }> }> {
@@ -721,13 +726,17 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
                     </div>
                     {r.cases[activeCase] && (
                       <div className="space-y-1 text-sm">
-                        {r.firstFail && r.cases[activeCase].i === r.firstFail.i && (
+                        {r.firstFail && r.cases[activeCase].i === r.firstFail.i ? (
                           <>
                             <CaseBlock label={t('judge.input')} value={r.firstFail.input} />
                             <CaseBlock label={t('judge.expected')} value={r.firstFail.expected} />
+                            <CaseBlock label={t('judge.actual')} value={r.cases[activeCase].actual} />
+                          </>
+                        ) : (
+                          <>
+                            <CaseBlock label={r.cases[activeCase].ok ? '✅ ' + t('judge.actual') : t('judge.actual')} value={r.cases[activeCase].actual} />
                           </>
                         )}
-                        <CaseBlock label={t('judge.actual')} value={r.cases[activeCase].actual} />
                         {r.cases[activeCase].error && <CaseBlock label={t('judge.error')} value={r.cases[activeCase].error} pre />}
                       </div>
                     )}
