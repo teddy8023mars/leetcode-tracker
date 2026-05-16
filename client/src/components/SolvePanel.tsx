@@ -682,12 +682,12 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
                 </div>
                 {cases[activeCase] && (
                   <div className="space-y-2">
-                    {cases[activeCase].params.map((p, i) => (
-                      <div key={i}>
-                        <div className="text-xs text-ink-soft font-mono mb-0.5">{p.name} =</div>
-                        <pre className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{p.value}</pre>
-                      </div>
-                    ))}
+                    <div>
+                      <div className="text-xs text-ink-soft font-mono mb-0.5">{t('judge.input')}</div>
+                      <pre className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-sm font-mono overflow-x-auto">
+                        {cases[activeCase].params.map(p => `${p.name} = ${p.value}`).join(', ')}
+                      </pre>
+                    </div>
                   </div>
                 )}
               </>
