@@ -25,15 +25,26 @@ export function AppShell({ children }: { children: ReactNode }) {
             🐻 刷题宝典
           </h1>
           <div className="mb-6 flex items-center gap-2">
-            <Button size="sm" variant={lang === 'en' ? 'default' : 'outline'} onClick={() => setLang('en')}>EN</Button>
-            <Button size="sm" variant={lang === 'zh' ? 'default' : 'outline'} onClick={() => setLang('zh')}>中</Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setTheme(resolved === 'light' ? 'dark' : 'light')}
+            <button
+              type="button"
+              onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+              className="px-2.5 py-1.5 text-sm font-mono rounded border border-border hover:bg-secondary transition-colors"
+              title={lang === 'en' ? 'Switch to Chinese' : '切换为英文'}
             >
-              {resolved === 'light' ? '🌙' : '☀️'}
-            </Button>
+              <span className={lang === 'en' ? 'font-bold' : 'opacity-40'}>EN</span>
+              <span className="mx-0.5 opacity-30">/</span>
+              <span className={lang === 'zh' ? 'font-bold' : 'opacity-40'}>中</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(resolved === 'light' ? 'dark' : 'light')}
+              className="px-2.5 py-1.5 text-sm rounded border border-border hover:bg-secondary transition-colors"
+              title={resolved === 'light' ? 'Dark mode' : 'Light mode'}
+            >
+              <span className={resolved === 'light' ? '' : 'opacity-40'}>☀️</span>
+              <span className="mx-0.5 opacity-30">/</span>
+              <span className={resolved === 'dark' ? '' : 'opacity-40'}>🌙</span>
+            </button>
           </div>
           <nav className="flex flex-col gap-1 flex-1">
             {NAV.map((item) => {
