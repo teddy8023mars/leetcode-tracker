@@ -25,30 +25,26 @@ export function AppShell({ children }: { children: ReactNode }) {
             🐻 刷题宝典
           </h1>
           <div className="mb-6 flex items-center gap-3">
-            <div className="relative flex bg-secondary dark:bg-slate-800 rounded-full p-0.5 border border-border">
-              <button
-                type="button"
-                onClick={() => setLang('en')}
-                className={`relative z-10 px-2.5 py-1 text-xs font-mono rounded-full transition-all ${lang === 'en' ? 'bg-white dark:bg-slate-600 text-ink shadow-sm font-bold' : 'text-ink-soft'}`}
-              >EN</button>
-              <button
-                type="button"
-                onClick={() => setLang('zh')}
-                className={`relative z-10 px-2.5 py-1 text-xs font-mono rounded-full transition-all ${lang === 'zh' ? 'bg-white dark:bg-slate-600 text-ink shadow-sm font-bold' : 'text-ink-soft'}`}
-              >中</button>
-            </div>
-            <div className="relative flex bg-secondary dark:bg-slate-800 rounded-full p-0.5 border border-border">
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'light' ? 'bg-white shadow-sm' : 'opacity-50'}`}
-              >☀️</button>
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'dark' ? 'bg-slate-600 shadow-sm' : ''}`}
-              >🌙</button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+              className="relative w-16 h-8 rounded-full bg-secondary dark:bg-slate-700 border border-border transition-colors cursor-pointer"
+              title={lang === 'en' ? 'Switch to Chinese' : '切换为英文'}
+            >
+              <span className={`absolute top-0.5 w-7 h-7 rounded-full bg-white dark:bg-slate-500 shadow-md flex items-center justify-center text-xs font-bold transition-all duration-200 ${lang === 'zh' ? 'left-[calc(100%-1.875rem)]' : 'left-0.5'}`}>
+                {lang === 'en' ? 'EN' : '中'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(resolved === 'light' ? 'dark' : 'light')}
+              className={`relative w-16 h-8 rounded-full border border-border transition-colors duration-200 cursor-pointer ${resolved === 'dark' ? 'bg-indigo-900' : 'bg-amber-100'}`}
+              title={resolved === 'light' ? 'Dark mode' : 'Light mode'}
+            >
+              <span className={`absolute top-0.5 w-7 h-7 rounded-full shadow-md flex items-center justify-center text-sm transition-all duration-300 ${resolved === 'dark' ? 'left-[calc(100%-1.875rem)] bg-indigo-700' : 'left-0.5 bg-white'}`}>
+                {resolved === 'dark' ? '🌙' : '☀️'}
+              </span>
+            </button>
           </div>
           <nav className="flex flex-col gap-1 flex-1">
             {NAV.map((item) => {
