@@ -285,7 +285,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         </div>
       )}
 
-      <div className="border border-border rounded overflow-hidden" style={{ height: 400 }}>
+      <div className="border border-border rounded overflow-hidden resize-y" style={{ height: 400, minHeight: 150 }}>
         <Editor
           height="100%"
           language={MONACO_LANG[language]}
