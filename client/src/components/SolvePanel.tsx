@@ -283,9 +283,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         </div>
       )}
 
-      <div className="border border-border rounded overflow-hidden">
+      <div className="border border-border rounded overflow-hidden resize-y" style={{ height: 400, minHeight: 200, overflow: 'hidden' }}>
         <Editor
-          height="400px"
+          height="100%"
           language={MONACO_LANG[language]}
           value={code}
           onChange={(v) => setCode(v ?? '')}
