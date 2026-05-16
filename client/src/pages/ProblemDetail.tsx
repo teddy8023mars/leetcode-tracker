@@ -201,9 +201,8 @@ function SolutionPanel({ problemId }: { problemId: number }) {
 
   const solutions = q.data ?? [];
   const preferred = lang === 'zh' ? 'zh' : 'en';
-  const sol = solutions.length > 0
-    ? (solutions.find(s => s.language === preferred) ?? solutions[0])
-    : null;
+  const preferredSol = solutions.find(s => s.language === preferred);
+  const sol = preferredSol ?? (lang === 'zh' ? null : solutions[0] ?? null);
   const cleaned = sol ? cleanSolutionMarkdown(sol.contentMarkdown) : null;
 
   return (
