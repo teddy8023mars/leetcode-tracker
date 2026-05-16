@@ -26,10 +26,10 @@ const COMPANY_DOMAIN: Record<string, string> = {
   microsoft: 'microsoft.com', apple: 'apple.com', netflix: 'netflix.com',
   uber: 'uber.com', airbnb: 'airbnb.com', linkedin: 'linkedin.com',
   salesforce: 'salesforce.com', adobe: 'adobe.com', nvidia: 'nvidia.com',
-  tesla: 'tesla.com', bytedance: 'bytedance.com', tencent: 'tencent.com',
+  tesla: 'tesla.com', bytedance: 'jobs.bytedance.com', tencent: 'tencent.com',
   alibaba: 'alibaba.com', baidu: 'baidu.com', meituan: 'meituan.com',
   xiaohongshu: 'xiaohongshu.com', didi: 'didiglobal.com',
-  grab: 'grab.com', shopee: 'shopee.com', sea: 'sea.com',
+  grab: 'grab.com', shopee: 'shopee.sg', sea: 'sea.com',
   tiktok: 'tiktok.com', lazada: 'lazada.com',
 };
 
