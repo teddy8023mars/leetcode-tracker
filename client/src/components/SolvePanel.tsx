@@ -212,8 +212,8 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   }, [result, t]);
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      <div className="flex items-center gap-3 flex-wrap shrink-0">
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs font-mono uppercase tracking-widest text-ink-soft">
           {t('judge.language')}
         </span>
@@ -285,7 +285,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         </div>
       )}
 
-      <div className="border border-border rounded overflow-hidden flex-1" style={{ minHeight: 200, maxHeight: 'calc(100vh - 24rem)' }}>
+      <div className="border border-border rounded overflow-hidden" style={{ height: 400 }}>
         <Editor
           height="100%"
           language={MONACO_LANG[language]}
@@ -310,7 +310,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         )}
       </div>
 
-      <div className="shrink-0">
+      <div>
         <BottomPanel
           result={result}
           runMut={runMut}
