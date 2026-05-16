@@ -70,11 +70,13 @@ export function ProblemList() {
   const search = useDebounce(filters.search as string | undefined, 300);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'id' | 'difficulty'>('id');
+  const [sortBy, setSortBy] = useState<'id' | 'difficulty' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const toggleSort = (col: 'id' | 'difficulty') => {
-    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortBy(col); setSortDir('asc'); }
+    if (sortBy === col) {
+      if (sortDir === 'asc') setSortDir('desc');
+      else { setSortBy(null); setSortDir('asc'); }
+    } else { setSortBy(col); setSortDir('asc'); }
     setPage(1);
   };
 
@@ -122,12 +124,12 @@ export function ProblemList() {
   const filteredItems = tagFilter
     ? rawItems.filter(p => (p.topicTagsJson ?? []).some(t => t.slug === tagFilter))
     : rawItems;
-  const allItems = [...filteredItems].sort((a, b) => {
+  const allItems = sortBy ? [...filteredItems].sort((a, b) => {
     let cmp: number;
     if (sortBy === 'difficulty') cmp = (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1);
     else cmp = a.frontendId - b.frontendId;
     return sortDir === 'desc' ? -cmp : cmp;
-  });
+  }) : filteredItems;
   const total = allItems.length;
   const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -247,11 +249,11 @@ export function ProblemList() {
                 <thead className="text-left text-ink-soft font-mono text-xs">
                   <tr className="border-b border-border">
                     <th className="py-2 pr-3 w-16 cursor-pointer hover:text-ink select-none" onClick={() => toggleSort('id')}>
-                      {t('problemList.no')} {sortBy === 'id' ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}
+                      {t('problemList.no')} {sortBy === 'id' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="opacity-30">⇅</span>}
                     </th>
                     <th className="pr-3">{t('problemList.name')}</th>
                     <th className="pr-3 w-24 cursor-pointer hover:text-ink select-none" onClick={() => toggleSort('difficulty')}>
-                      {t('problemList.diff')} {sortBy === 'difficulty' ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}
+                      {t('problemList.diff')} {sortBy === 'difficulty' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="opacity-30">⇅</span>}
                     </th>
                     <th className="pr-3 w-28">{t('filter.status')}</th>
                   </tr>
