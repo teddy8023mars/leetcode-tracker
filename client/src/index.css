@@ -60,6 +60,36 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
+/* Dark mode overrides for Streamdown rendered content */
+.dark .prose pre,
+.dark .prose code,
+.dark .streamdown pre,
+.dark .streamdown code,
+.dark [data-streamdown] pre,
+.dark [data-streamdown] code {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.dark .prose pre *,
+.dark .streamdown pre * {
+  background-color: transparent !important;
+}
+
+.dark .prose :where(code):not(:where(pre *)) {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Streamdown's own wrapper divs around code blocks */
+.dark .prose > div:has(> pre),
+.dark .prose div[class*="code"],
+.dark .prose div[class*="shiki"],
+.dark .prose figure {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
 :root {
   /* Blueprint palette (M1 spec) */
   --blueprint-bg: #FAFBFC;
