@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { router, publicProcedure } from '../_core/trpc';
-import { listProblemsQuery, getProblemBySlug, getDb } from '../db';
+import { listProblemsQuery, getProblemBySlug, getDb, getCompanyTagsForProblem } from '../db';
 import { problemSolutions } from '../../drizzle/schema';
 import { DifficultySchema, ProgressStatusSchema } from '@shared/problemTypes';
 
@@ -45,5 +45,10 @@ export const problemsRouter = router({
         .select()
         .from(problemSolutions)
         .where(eq(problemSolutions.problemId, input.problemId));
+    }),
+  companyTags: publicProcedure
+    .input(z.object({ problemId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      return await getCompanyTagsForProblem(input.problemId);
     }),
 });

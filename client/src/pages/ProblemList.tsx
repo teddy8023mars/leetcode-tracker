@@ -31,6 +31,29 @@ type ProblemRow = {
 
 const PAGE_SIZES = [20, 50, 100];
 
+const COMPANIES = [
+  { slug: 'google', name: 'Google', zh: '谷歌' },
+  { slug: 'meta', name: 'Meta', zh: 'Meta' },
+  { slug: 'amazon', name: 'Amazon', zh: '亚马逊' },
+  { slug: 'microsoft', name: 'Microsoft', zh: '微软' },
+  { slug: 'apple', name: 'Apple', zh: '苹果' },
+  { slug: 'adobe', name: 'Adobe', zh: 'Adobe' },
+  { slug: 'nvidia', name: 'Nvidia', zh: '英伟达' },
+  { slug: 'uber', name: 'Uber', zh: '优步' },
+  { slug: 'salesforce', name: 'Salesforce', zh: 'Salesforce' },
+  { slug: 'linkedin', name: 'LinkedIn', zh: '领英' },
+  { slug: 'bytedance', name: 'ByteDance', zh: '字节跳动' },
+  { slug: 'tiktok', name: 'TikTok', zh: 'TikTok' },
+  { slug: 'netflix', name: 'Netflix', zh: '奈飞' },
+  { slug: 'tesla', name: 'Tesla', zh: '特斯拉' },
+  { slug: 'airbnb', name: 'Airbnb', zh: '爱彼迎' },
+  { slug: 'tencent', name: 'Tencent', zh: '腾讯' },
+  { slug: 'grab', name: 'Grab', zh: 'Grab' },
+  { slug: 'shopee', name: 'Shopee', zh: '虾皮' },
+  { slug: 'alibaba', name: 'Alibaba', zh: '阿里巴巴' },
+  { slug: 'baidu', name: 'Baidu', zh: '百度' },
+];
+
 const TAG_ZH: Record<string, string> = {
   'array': '数组', 'string': '字符串', 'hash-table': '哈希表',
   'dynamic-programming': '动态规划', 'two-pointers': '双指针',
@@ -88,6 +111,7 @@ export function ProblemList() {
         paidOnly:
           typeof filters.paidOnly === 'boolean' ? (filters.paidOnly as boolean) : undefined,
         status: filters.status as 'todo' | 'reviewing' | 'done' | undefined,
+        companySlug: filters.company as string | undefined,
       },
       limit: 200,
     },
@@ -211,6 +235,30 @@ export function ProblemList() {
               </Select>
             </div>
           )}
+          <div>
+            <label className="font-mono text-xs text-ink-soft block mb-1">
+              {t('filter.company')}
+            </label>
+            <Select
+              value={(filters.company as string) ?? 'all'}
+              onValueChange={(v) => {
+                setFilter('company', v === 'all' ? undefined : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('filter.all')}</SelectItem>
+                {COMPANIES.map(c => (
+                  <SelectItem key={c.slug} value={c.slug}>
+                    {lang === 'zh' ? c.zh : c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -249,11 +297,11 @@ export function ProblemList() {
                 <thead className="text-left text-ink-soft font-mono text-xs">
                   <tr className="border-b border-border">
                     <th className="py-2 pr-3 w-16 cursor-pointer hover:text-ink select-none" onClick={() => toggleSort('id')}>
-                      {t('problemList.no')} {sortBy === 'id' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="opacity-30">⇅</span>}
+                      <span className="inline-flex items-center gap-1">{t('problemList.no')} {sortBy === 'id' ? (sortDir === 'asc' ? <span className="text-emerald-600">▲</span> : <span className="text-emerald-600">▼</span>) : <span className="opacity-20">▲▼</span>}</span>
                     </th>
                     <th className="pr-3">{t('problemList.name')}</th>
                     <th className="pr-3 w-24 cursor-pointer hover:text-ink select-none" onClick={() => toggleSort('difficulty')}>
-                      {t('problemList.diff')} {sortBy === 'difficulty' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="opacity-30">⇅</span>}
+                      <span className="inline-flex items-center gap-1">{t('problemList.diff')} {sortBy === 'difficulty' ? (sortDir === 'asc' ? <span className="text-emerald-600">▲</span> : <span className="text-emerald-600">▼</span>) : <span className="opacity-20">▲▼</span>}</span>
                     </th>
                     <th className="pr-3 w-28">{t('filter.status')}</th>
                   </tr>

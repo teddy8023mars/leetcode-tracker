@@ -27,14 +27,11 @@ type ProblemDetailRow = {
   topicTagsJson?: { name: string; slug: string }[] | null;
 };
 
-type Tab = 'description' | 'solution' | 'solve';
-
 export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const t = useT();
   const { lang } = useLang();
   const q = trpc.problems.getBySlug.useQuery({ titleSlug }, { staleTime: 60_000 });
   const allQ = trpc.problems.list.useQuery({ limit: 200 }, { staleTime: 120_000 });
-  const [tab, setTab] = useState<Tab>('description');
 
   const { prev, next } = useMemo(() => {
     const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
@@ -55,10 +52,12 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const content = wantZh ? p.contentZh || p.contentEn : p.contentEn;
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
-  const containerWidth = tab === 'solve' ? 'w-full' : 'max-w-5xl';
 
   const similarQuestions = (p.similarQuestionsJson ?? []) as SimilarQuestion[];
   const topicTags = (p.topicTagsJson ?? []) as { name: string; slug: string }[];
+  const companyQ = trpc.problems.companyTags.useQuery({ problemId: p.id }, { staleTime: 120_000 });
+  const companies = (companyQ.data ?? []) as Array<{ companySlug: string; companyName: string }>;
+  const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
 
   const descriptionCard = (
     <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
@@ -77,7 +76,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   );
 
   return (
-    <div className={`${containerWidth} space-y-6`}>
+    <div className="w-full space-y-4">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <Link
@@ -106,11 +105,25 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </h1>
           <DifficultyBadge difficulty={p.difficulty} />
         </header>
-        {topicTags.length > 0 && (
-          <div className="flex gap-1 flex-wrap">
+        {(topicTags.length > 0 || uniqueCompanies.length > 0) && (
+          <div className="flex gap-1.5 flex-wrap items-center">
             {topicTags.map(tag => (
               <span key={tag.slug} className="px-2 py-0.5 text-[11px] font-mono bg-secondary rounded text-ink-soft">
                 {tag.name}
+              </span>
+            ))}
+            {uniqueCompanies.length > 0 && topicTags.length > 0 && (
+              <span className="text-border mx-1">|</span>
+            )}
+            {uniqueCompanies.map(c => (
+              <span key={c.companySlug} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono bg-blue-50 text-blue-700 rounded" title={c.companyName}>
+                <img
+                  src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${c.companySlug === 'bytedance' ? 'jobs.bytedance.com' : c.companySlug === 'shopee' ? 'shopee.sg' : c.companySlug === 'didi' ? 'didiglobal.com' : c.companySlug + '.com'}&size=16`}
+                  alt=""
+                  className="w-3 h-3"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                {c.companyName}
               </span>
             ))}
           </div>
@@ -118,64 +131,45 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         <ProgressSection problemId={p.id} />
       </div>
 
-      <div role="tablist" className="flex gap-1 border-b border-border">
-        <TabButton active={tab === 'description'} onClick={() => setTab('description')}>
-          {t('problem.description')}
-        </TabButton>
-        <TabButton active={tab === 'solution'} onClick={() => setTab('solution')}>
-          {t('problem.solutionTab')}
-        </TabButton>
-        <TabButton active={tab === 'solve'} onClick={() => setTab('solve')}>
-          {t('judge.tab')}
-        </TabButton>
-      </div>
-
-      {tab === 'description' && (
-        <div className="space-y-4">
-          {descriptionCard}
-          {similarQuestions.length > 0 && (
-            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-4">
-              <h3 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-3">
-                {t('problem.relatedProblems')}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {similarQuestions.slice(0, 8).map(sq => (
-                  <Link
-                    key={sq.titleSlug}
-                    href={`/problems/${sq.titleSlug}`}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-secondary/50 hover:bg-secondary rounded transition-colors"
-                  >
-                    <span>{sq.title}</span>
-                    <DifficultyBadge difficulty={sq.difficulty as Difficulty} />
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      )}
-
-      {tab === 'solution' && <SolutionPanel problemId={p.id} />}
-
-      {tab === 'solve' && (
-        <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-12rem)]">
-          <ResizablePanel defaultSize={40} minSize={20}>
-            <div className="h-full overflow-y-auto pr-2">
-              {descriptionCard}
-            </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={60} minSize={30}>
-            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6 h-full overflow-y-auto">
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-12rem)]">
+        <ResizablePanel defaultSize={40} minSize={20}>
+          <div className="h-full overflow-y-auto pr-2 space-y-4">
+            {descriptionCard}
+            <SolutionPanel problemId={p.id} />
+            {similarQuestions.length > 0 && (
+              <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-4">
+                <h3 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-3">
+                  {t('problem.relatedProblems')}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {similarQuestions.slice(0, 8).map(sq => (
+                    <Link
+                      key={sq.titleSlug}
+                      href={`/problems/${sq.titleSlug}`}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-secondary/50 hover:bg-secondary rounded transition-colors"
+                    >
+                      <span>{sq.title}</span>
+                      <DifficultyBadge difficulty={sq.difficulty as Difficulty} />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={60} minSize={30}>
+          <div className="h-full overflow-y-auto">
+            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
               <SolvePanel
                 problemId={p.id}
                 titleSlug={p.titleSlug}
                 codeSnippets={snippets}
               />
             </section>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
@@ -411,29 +405,3 @@ function ProgressSection({ problemId }: { problemId: number }) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={
-        'px-4 py-2 text-sm font-mono uppercase tracking-wider border-b-2 -mb-px transition-colors ' +
-        (active
-          ? 'border-emerald-600 text-ink'
-          : 'border-transparent text-ink-soft hover:text-ink')
-      }
-    >
-      {children}
-    </button>
-  );
-}

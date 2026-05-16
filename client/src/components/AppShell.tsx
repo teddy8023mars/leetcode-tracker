@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 
 const NAV = [
   { href: '/problems', key: 'nav.problems' },
-  { href: '/companies', key: 'nav.companies' },
   { href: '/sync', key: 'nav.sync' },
   { href: '/settings', key: 'nav.settings' },
 ];

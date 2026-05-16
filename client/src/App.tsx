@@ -8,8 +8,6 @@ import { LangProvider } from './contexts/LangContext';
 import { AppShell } from './components/AppShell';
 import { ProblemList } from './pages/ProblemList';
 import { ProblemDetail } from './pages/ProblemDetail';
-import { Companies } from './pages/Companies';
-import { CompanyDetail } from './pages/CompanyDetail';
 import { SyncStatus } from './pages/SyncStatus';
 import { Settings } from './pages/Settings';
 
@@ -23,11 +21,7 @@ function Router() {
         <ProblemList />
       </Route>
       <Route path="/problems/:slug">{(p) => <ProblemDetail titleSlug={p.slug} />}</Route>
-<Route path="/companies">
-        <Companies />
-      </Route>
-      <Route path="/companies/:slug">{(p) => <CompanyDetail slug={p.slug} />}</Route>
-      <Route path="/sync">
+<Route path="/sync">
         <SyncStatus />
       </Route>
       <Route path="/settings">
