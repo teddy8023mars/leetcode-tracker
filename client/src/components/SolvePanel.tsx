@@ -584,7 +584,7 @@ function VerdictDot({ verdict }: { verdict: Verdict }) {
 
 function parseExampleTestcases(raw: string | null | undefined): Array<{ label: string; lines: string[] }> {
   if (!raw) return [];
-  const lines = raw.split('\n').filter(l => l.trim());
+  const lines = raw.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
   if (lines.length === 0) return [];
   // Group lines into cases — heuristic: each case has the same number of params
   // Try grouping by 1, 2, 3 params and pick the one that divides evenly
@@ -613,6 +613,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
   const r = result as {
     verdict?: string; passedCount?: number; totalCount?: number; runtimeMs?: number;
     firstFail?: { i: number; input: unknown; expected: unknown; actual: unknown; error?: string };
+    cases?: Array<{ i: number; ok: boolean; actual: unknown; error?: string | null }>;
     compileStderr?: string; stderr?: string;
   } | null;
 
@@ -690,15 +691,37 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
             {r && (
               <>
                 {verdictPill}
+                {r.cases && r.cases.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex gap-1 flex-wrap">
+                      {r.cases.map((c, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveCase(i)}
+                          className={`px-3 py-1 text-xs font-mono rounded flex items-center gap-1 ${activeCase === i ? 'bg-secondary text-ink' : 'text-ink-soft hover:text-ink'}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${c.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          {t('judge.case')} {c.i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    {r.cases[activeCase] && (
+                      <div className="space-y-1 text-sm">
+                        <CaseBlock label={t('judge.actual')} value={r.cases[activeCase].actual} />
+                        {r.cases[activeCase].error && <CaseBlock label={t('judge.error')} value={r.cases[activeCase].error} pre />}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {r.firstFail && (
-                  <div className="space-y-2 text-sm">
-                    <h4 className="font-mono uppercase text-xs tracking-widest text-ink-soft">
+                  <div className="space-y-1 text-sm border-t border-border pt-2 mt-2">
+                    <h4 className="font-mono text-xs text-ink-soft">
                       {t('judge.failingCase')} · {t('judge.case')} {r.firstFail.i + 1}
                     </h4>
                     <CaseBlock label={t('judge.input')} value={r.firstFail.input} />
                     <CaseBlock label={t('judge.expected')} value={r.firstFail.expected} />
                     <CaseBlock label={t('judge.actual')} value={r.firstFail.actual} />
-                    {r.firstFail.error && <CaseBlock label={t('judge.error')} value={r.firstFail.error} pre />}
                   </div>
                 )}
                 {r.compileStderr && <CaseBlock label={t('judge.stderr')} value={r.compileStderr} pre />}
