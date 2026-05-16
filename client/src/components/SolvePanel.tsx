@@ -193,14 +193,14 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         </span>
         <span className="text-sm font-mono">{LANG_LABELS[language]}</span>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowSettings(s => !s)}
-            className="text-[11px] font-mono text-ink-soft hover:text-ink"
+            className="px-2.5 py-1 text-sm font-mono text-ink-soft hover:text-ink hover:bg-secondary rounded transition-colors"
             title="Settings"
           >
-            ⚙
+            ⚙ Settings
           </button>
           <button
             type="button"
@@ -208,9 +208,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
               localStorage.removeItem(codeKey(language));
               setCode(pickStarter(language, codeSnippets));
             }}
-            className="text-[11px] font-mono text-ink-soft hover:text-ink"
+            className="px-2.5 py-1 text-sm font-mono text-ink-soft hover:text-ink hover:bg-secondary rounded transition-colors"
           >
-            {t('problem.reset')}
+            ↺ {t('problem.reset')}
           </button>
           <button
             type="button"
@@ -231,7 +231,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       </div>
 
       {showSettings && (
-        <div className="flex items-center gap-4 flex-wrap text-xs font-mono border border-border rounded-lg px-3 py-2 bg-white/80">
+        <div className="flex items-center gap-5 flex-wrap text-sm font-mono border border-border rounded-lg px-4 py-3 bg-white/80">
           <label className="flex items-center gap-1.5">
             <span className="text-ink-soft">Font</span>
             <select value={editorSettings.fontSize} onChange={e => updateSetting('fontSize', Number(e.target.value))} className="border rounded px-1 py-0.5">
@@ -491,7 +491,7 @@ function SubmissionDetailDialog({
             )}
 
             <div className="space-y-1">
-              <div className="text-[11px] font-mono uppercase tracking-widest text-ink-soft">
+              <div className="text-xs font-mono uppercase tracking-widest text-ink-soft">
                 {t('judge.code')}
               </div>
               <pre className="text-xs font-mono bg-slate-50 border border-border rounded p-3 overflow-auto whitespace-pre">
@@ -526,7 +526,7 @@ function CaseBlock({ label, value, pre }: { label: string; value: unknown; pre?:
   }
   return (
     <div className="space-y-1">
-      <div className="text-[11px] font-mono uppercase tracking-widest text-ink-soft">{label}</div>
+      <div className="text-xs font-mono uppercase tracking-widest text-ink-soft">{label}</div>
       <pre className={`text-xs font-mono bg-slate-50 border border-border rounded p-2 overflow-auto whitespace-pre${pre ? '-wrap' : ''} max-h-48`}>
         {display}
       </pre>
@@ -611,7 +611,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
         </button>
       </div>
 
-      <div className="p-4 max-h-48 overflow-y-auto">
+      <div className="p-4 max-h-64 overflow-y-auto">
         {bottomTab === 'cases' && (
           <div className="space-y-3">
             {cases.length === 0 ? (

@@ -105,7 +105,7 @@ export function SyncStatus() {
                 <td>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-block w-14 text-center py-0.5 rounded font-mono text-[11px] ${
+                      className={`inline-block w-14 text-center py-0.5 rounded font-mono text-xs ${
                         STATUS_TONE[r.status] ?? 'bg-secondary text-ink-soft'
                       }`}
                     >
@@ -129,7 +129,7 @@ export function SyncStatus() {
                   {pct !== null ? (
                     <div className="flex items-center gap-2">
                       <Progress value={pct} className="h-2 w-24" />
-                      <span className="text-[11px] text-ink-soft">{pct}%</span>
+                      <span className="text-xs text-ink-soft">{pct}%</span>
                     </div>
                   ) : (
                     processed

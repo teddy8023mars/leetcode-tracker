@@ -326,7 +326,7 @@ export function ProblemList() {
                           {lang === 'zh' ? p.titleZh || p.titleEn : p.titleEn}
                         </Link>
                         {Boolean(p.paidOnly) && (
-                          <span className="ml-2 text-[10px] font-mono text-amber-700 uppercase">
+                          <span className="ml-2 text-xs font-mono text-amber-700 uppercase">
                             {t('problem.paidOnly')}
                           </span>
                         )}

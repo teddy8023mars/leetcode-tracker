@@ -66,7 +66,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           {t('problem.description')}
         </h2>
         {wantZh && !usedZh && p.contentEn && (
-          <span className="text-[11px] text-amber-700 font-mono">
+          <span className="text-xs text-amber-700 font-mono">
             ZH not available — showing EN
           </span>
         )}
@@ -87,12 +87,12 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </Link>
           <div className="flex items-center gap-2">
             {prev && (
-              <Link href={`/problems/${prev.titleSlug}`} className="text-xs font-mono text-ink-soft hover:text-ink">
+              <Link href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
                 ← #{prev.frontendId}
               </Link>
             )}
             {next && (
-              <Link href={`/problems/${next.titleSlug}`} className="text-xs font-mono text-ink-soft hover:text-ink">
+              <Link href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
                 #{next.frontendId} →
               </Link>
             )}
@@ -264,7 +264,7 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
   return (
     <section className="bg-gradient-to-br from-emerald-50/80 to-white/70 backdrop-blur border border-emerald-200 rounded-lg p-6 space-y-5">
       <div className="flex items-center gap-2 border-b border-emerald-200 pb-2">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">AI</span>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">AI</span>
         <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
           {t('problem.aiSolution')}
         </h2>
@@ -292,7 +292,7 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
               type="button"
               onClick={() => setCodeLang(key)}
               className={
-                'px-3 py-1 text-xs font-mono rounded transition-colors ' +
+                'px-3 py-1.5 text-sm font-mono rounded transition-colors ' +
                 (codeLang === key
                   ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-secondary text-ink-soft hover:text-ink')
@@ -371,7 +371,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
             onClick={() => handleStatus(btn.status)}
             disabled={mutation.isPending}
             className={
-              'px-3 py-1 text-xs font-mono rounded transition-colors ' +
+              'px-3 py-1.5 text-sm font-mono rounded transition-colors ' +
               (currentStatus === btn.status
                 ? btn.activeClass
                 : 'bg-secondary/50 text-ink-soft hover:text-ink')
@@ -381,7 +381,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
           </button>
         ))}
         {nextReview && currentStatus === 'done' && (
-          <span className="text-[11px] text-ink-soft font-mono">
+          <span className="text-xs text-ink-soft font-mono">
             {t('progress.nextReview', { date: nextReview.toLocaleDateString() })}
           </span>
         )}
@@ -395,7 +395,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
               type="button"
               onClick={() => handleRate(r.quality)}
               disabled={mutation.isPending}
-              className={`px-2 py-0.5 text-[11px] font-mono rounded ${r.color} hover:opacity-80`}
+              className={`px-3 py-1.5 text-sm font-mono rounded ${r.color} hover:opacity-80`}
             >
               {r.quality} {r.label}
             </button>
