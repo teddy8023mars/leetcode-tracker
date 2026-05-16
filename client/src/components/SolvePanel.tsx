@@ -628,14 +628,14 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
           onClick={() => setBottomTab('cases')}
           className={`px-4 py-2 text-xs font-mono ${bottomTab === 'cases' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
         >
-          ☑ {t('judge.cases')}
+          ☑ {t('judge.testcases')}
         </button>
         <button
           type="button"
           onClick={() => setBottomTab('result')}
           className={`px-4 py-2 text-xs font-mono ${bottomTab === 'result' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
         >
-          {'>'} {t('judge.case')}
+          {'>'} {t('judge.testResult')}
           {r && (
             <span className={`ml-1.5 ${r.verdict === 'accepted' ? 'text-emerald-600' : 'text-rose-600'}`}>
               {r.passedCount}/{r.totalCount}

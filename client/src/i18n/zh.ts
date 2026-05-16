@@ -99,6 +99,8 @@ export const zh: Dict = {
     runtimeMs: '耗时',
     cases: '用例',
     case: '用例',
+    testcases: '测试用例',
+    testResult: '测试结果',
     failingCase: '首个失败用例',
     input: '输入',
     expected: '期望',

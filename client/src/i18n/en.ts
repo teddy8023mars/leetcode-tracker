@@ -98,6 +98,8 @@ export const en = {
     runtimeMs: 'Runtime',
     cases: 'Cases',
     case: 'Case',
+    testcases: 'Test Cases',
+    testResult: 'Test Result',
     failingCase: 'First failing case',
     input: 'Input',
     expected: 'Expected',
