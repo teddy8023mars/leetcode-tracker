@@ -62,7 +62,7 @@ export function Companies() {
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <img
-                    src={`https://logo.clearbit.com/${COMPANY_DOMAIN[c.slug] ?? c.slug + '.com'}`}
+                    src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${COMPANY_DOMAIN[c.slug] ?? c.slug + '.com'}&size=64`}
                     alt={c.nameEn}
                     className="w-8 h-8 rounded"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
