@@ -108,7 +108,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         {(topicTags.length > 0 || uniqueCompanies.length > 0) && (
           <div className="flex gap-1.5 flex-wrap items-center">
             {topicTags.map(tag => (
-              <span key={tag.slug} className="px-2 py-0.5 text-[11px] font-mono bg-secondary rounded text-ink-soft">
+              <span key={tag.slug} className="px-2.5 py-1 text-xs font-mono bg-secondary rounded text-ink-soft">
                 {tag.name}
               </span>
             ))}
@@ -116,11 +116,11 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
               <span className="text-border mx-1">|</span>
             )}
             {uniqueCompanies.map(c => (
-              <span key={c.companySlug} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono bg-blue-50 text-blue-700 rounded" title={c.companyName}>
+              <span key={c.companySlug} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-blue-50 text-blue-700 rounded" title={c.companyName}>
                 <img
-                  src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${c.companySlug === 'bytedance' ? 'jobs.bytedance.com' : c.companySlug === 'shopee' ? 'shopee.sg' : c.companySlug === 'didi' ? 'didiglobal.com' : c.companySlug + '.com'}&size=16`}
+                  src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${c.companySlug === 'bytedance' ? 'jobs.bytedance.com' : c.companySlug === 'shopee' ? 'shopee.sg' : c.companySlug === 'didi' ? 'didiglobal.com' : c.companySlug + '.com'}&size=32`}
                   alt=""
-                  className="w-3 h-3"
+                  className="w-4 h-4"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
                 {c.companyName}
