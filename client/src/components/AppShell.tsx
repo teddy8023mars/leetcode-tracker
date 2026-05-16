@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="min-h-screen flex">
         <aside className="w-64 shrink-0 border-r border-border bg-white/80 dark:bg-slate-900/90 backdrop-blur px-5 py-6 sticky top-0 h-screen flex flex-col">
           <h1 className="font-sans text-lg font-extrabold tracking-tight leading-tight mb-4">
-            LeetCode<br />Tracker
+            🐻 刷题宝典
           </h1>
           <div className="mb-6 flex items-center gap-2">
             <Button size="sm" variant={lang === 'en' ? 'default' : 'outline'} onClick={() => setLang('en')}>EN</Button>
