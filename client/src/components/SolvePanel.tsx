@@ -53,6 +53,7 @@ export interface SolvePanelProps {
   problemId: number;
   titleSlug: string;
   codeSnippets: CodeSnippet[] | null | undefined;
+  exampleTestcases?: string | null;
 }
 
 type Verdict =
@@ -72,11 +73,44 @@ const VERDICT_TONE: Record<Verdict, string> = {
   internal_error: 'bg-slate-100 text-slate-800 border-slate-300',
 };
 
-export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelProps) {
+type EditorSettings = {
+  fontSize: number;
+  tabSize: number;
+  wordWrap: boolean;
+  relativeLineNumbers: boolean;
+  vimMode: boolean;
+};
+
+const DEFAULT_SETTINGS: EditorSettings = {
+  fontSize: 14,
+  tabSize: 4,
+  wordWrap: true,
+  relativeLineNumbers: false,
+  vimMode: false,
+};
+
+function loadEditorSettings(): EditorSettings {
+  try {
+    const saved = localStorage.getItem('lc.editorSettings');
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+  } catch { return DEFAULT_SETTINGS; }
+}
+
+export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcases }: SolvePanelProps) {
   const t = useT();
   const { lang: uiLang } = useLang();
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
   const isLoggedIn = !!me.data;
+
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const updateSetting = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => {
+    setEditorSettings(prev => {
+      const next = { ...prev, [key]: value };
+      localStorage.setItem('lc.editorSettings', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const codeKey = (l: Lang) => `lc.code.${titleSlug}.${l}`;
   const [language, setLanguage] = useState<Lang>('python');
@@ -162,6 +196,14 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
         <div className="ml-auto flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setShowSettings(s => !s)}
+            className="text-[11px] font-mono text-ink-soft hover:text-ink"
+            title="Settings"
+          >
+            ⚙
+          </button>
+          <button
+            type="button"
             onClick={() => {
               localStorage.removeItem(codeKey(language));
               setCode(pickStarter(language, codeSnippets));
@@ -188,65 +230,63 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets }: SolvePanelPro
         </div>
       </div>
 
+      {showSettings && (
+        <div className="flex items-center gap-4 flex-wrap text-xs font-mono border border-border rounded-lg px-3 py-2 bg-white/80">
+          <label className="flex items-center gap-1.5">
+            <span className="text-ink-soft">Font</span>
+            <select value={editorSettings.fontSize} onChange={e => updateSetting('fontSize', Number(e.target.value))} className="border rounded px-1 py-0.5">
+              {[12, 13, 14, 15, 16, 18, 20].map(s => <option key={s} value={s}>{s}px</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5">
+            <span className="text-ink-soft">Tab</span>
+            <select value={editorSettings.tabSize} onChange={e => updateSetting('tabSize', Number(e.target.value))} className="border rounded px-1 py-0.5">
+              {[2, 4, 8].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={editorSettings.wordWrap} onChange={e => updateSetting('wordWrap', e.target.checked)} />
+            <span className="text-ink-soft">Wrap</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={editorSettings.relativeLineNumbers} onChange={e => updateSetting('relativeLineNumbers', e.target.checked)} />
+            <span className="text-ink-soft">Relative #</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={editorSettings.vimMode} onChange={e => updateSetting('vimMode', e.target.checked)} />
+            <span className="text-ink-soft">Vim</span>
+          </label>
+        </div>
+      )}
+
       <div className="border border-border rounded overflow-hidden">
         <Editor
-          height="500px"
+          height="400px"
           language={MONACO_LANG[language]}
           value={code}
           onChange={(v) => setCode(v ?? '')}
           theme="vs"
           options={{
             minimap: { enabled: false },
-            fontSize: 13,
-            tabSize: 4,
+            fontSize: editorSettings.fontSize,
+            tabSize: editorSettings.tabSize,
             insertSpaces: true,
             scrollBeyondLastLine: false,
-            wordWrap: 'on',
+            wordWrap: editorSettings.wordWrap ? 'on' : 'off',
             automaticLayout: true,
             renderLineHighlight: 'line',
+            lineNumbers: editorSettings.relativeLineNumbers ? 'relative' : 'on',
           }}
         />
       </div>
 
-      {runMut.isPending && (
-        <p className="text-xs text-ink-soft font-mono">
-          {t('judge.firstGenerationHint')}
-        </p>
-      )}
-
-      {runMut.isError && (
-        <div className="border border-rose-300 bg-rose-50 text-rose-800 rounded px-3 py-2 text-sm font-mono">
-          {runMut.error?.message ?? 'submit failed'}
-        </div>
-      )}
-
-      {result && (
-        <section className="space-y-3 border border-border rounded-lg p-4 bg-white/60">
-          {verdictPill}
-
-          {result.firstFail && (
-            <div className="space-y-2 text-sm">
-              <h4 className="font-mono uppercase text-xs tracking-widest text-ink-soft">
-                {t('judge.failingCase')} · {t('judge.case')} {result.firstFail.i + 1}
-              </h4>
-              <CaseBlock label={t('judge.input')} value={result.firstFail.input} />
-              <CaseBlock label={t('judge.expected')} value={result.firstFail.expected} />
-              <CaseBlock label={t('judge.actual')} value={result.firstFail.actual} />
-              {result.firstFail.error && (
-                <CaseBlock label={t('judge.error')} value={result.firstFail.error} pre />
-              )}
-            </div>
-          )}
-
-          {result.compileStderr && (
-            <CaseBlock label={t('judge.stderr')} value={result.compileStderr} pre />
-          )}
-
-          {!result.firstFail && result.stderr && result.verdict !== 'accepted' && (
-            <CaseBlock label={t('judge.stderr')} value={result.stderr} pre />
-          )}
-        </section>
-      )}
+      <BottomPanel
+        result={result}
+        runMut={runMut}
+        verdictPill={verdictPill}
+        exampleTestcases={exampleTestcases}
+        t={t}
+      />
 
       {isLoggedIn && (
         <section className="space-y-2">
@@ -508,4 +548,136 @@ function VerdictDot({ verdict }: { verdict: Verdict }) {
       ? 'bg-orange-500'
       : 'bg-slate-400';
   return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
+}
+
+function parseExampleTestcases(raw: string | null | undefined): Array<{ label: string; lines: string[] }> {
+  if (!raw) return [];
+  const lines = raw.split('\n').filter(l => l.trim());
+  if (lines.length === 0) return [];
+  // Group lines into cases — heuristic: each case has the same number of params
+  // Try grouping by 1, 2, 3 params and pick the one that divides evenly
+  for (const groupSize of [2, 3, 1, 4]) {
+    if (lines.length % groupSize === 0) {
+      const cases: Array<{ label: string; lines: string[] }> = [];
+      for (let i = 0; i < lines.length; i += groupSize) {
+        cases.push({ label: `Case ${cases.length + 1}`, lines: lines.slice(i, i + groupSize) });
+      }
+      return cases;
+    }
+  }
+  return [{ label: 'Case 1', lines }];
+}
+
+function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
+  result: unknown;
+  runMut: { isPending: boolean; isError: boolean; error?: { message?: string } | null };
+  verdictPill: React.ReactNode;
+  exampleTestcases: string | null | undefined;
+  t: (key: string) => string;
+}) {
+  const [bottomTab, setBottomTab] = useState<'cases' | 'result'>(result ? 'result' : 'cases');
+  const [activeCase, setActiveCase] = useState(0);
+  const cases = useMemo(() => parseExampleTestcases(exampleTestcases), [exampleTestcases]);
+  const r = result as {
+    verdict?: string; passedCount?: number; totalCount?: number; runtimeMs?: number;
+    firstFail?: { i: number; input: unknown; expected: unknown; actual: unknown; error?: string };
+    compileStderr?: string; stderr?: string;
+  } | null;
+
+  // Auto-switch to result tab when result arrives
+  useEffect(() => { if (r) setBottomTab('result'); }, [r]);
+
+  return (
+    <div className="border border-border rounded-lg bg-white/60 overflow-hidden">
+      <div className="flex border-b border-border">
+        <button
+          type="button"
+          onClick={() => setBottomTab('cases')}
+          className={`px-4 py-2 text-xs font-mono ${bottomTab === 'cases' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
+        >
+          ☑ {t('judge.cases')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setBottomTab('result')}
+          className={`px-4 py-2 text-xs font-mono ${bottomTab === 'result' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
+        >
+          {'>'} {t('judge.case')}
+          {r && (
+            <span className={`ml-1.5 ${r.verdict === 'accepted' ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {r.passedCount}/{r.totalCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="p-4 max-h-48 overflow-y-auto">
+        {bottomTab === 'cases' && (
+          <div className="space-y-3">
+            {cases.length === 0 ? (
+              <p className="text-xs text-ink-soft font-mono">{t('empty')}</p>
+            ) : (
+              <>
+                <div className="flex gap-1">
+                  {cases.map((c, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setActiveCase(i)}
+                      className={`px-3 py-1 text-xs font-mono rounded ${activeCase === i ? 'bg-secondary text-ink' : 'text-ink-soft hover:text-ink'}`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                {cases[activeCase] && (
+                  <div className="space-y-2">
+                    {cases[activeCase].lines.map((line, i) => (
+                      <div key={i}>
+                        <pre className="bg-secondary/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{line}</pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {bottomTab === 'result' && (
+          <div className="space-y-3">
+            {runMut.isPending && (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.submitting')}</p>
+            )}
+            {runMut.isError && (
+              <div className="text-rose-800 text-xs font-mono">{runMut.error?.message ?? 'submit failed'}</div>
+            )}
+            {!r && !runMut.isPending && !runMut.isError && (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.firstGenerationHint')}</p>
+            )}
+            {r && (
+              <>
+                {verdictPill}
+                {r.firstFail && (
+                  <div className="space-y-2 text-sm">
+                    <h4 className="font-mono uppercase text-xs tracking-widest text-ink-soft">
+                      {t('judge.failingCase')} · {t('judge.case')} {r.firstFail.i + 1}
+                    </h4>
+                    <CaseBlock label={t('judge.input')} value={r.firstFail.input} />
+                    <CaseBlock label={t('judge.expected')} value={r.firstFail.expected} />
+                    <CaseBlock label={t('judge.actual')} value={r.firstFail.actual} />
+                    {r.firstFail.error && <CaseBlock label={t('judge.error')} value={r.firstFail.error} pre />}
+                  </div>
+                )}
+                {r.compileStderr && <CaseBlock label={t('judge.stderr')} value={r.compileStderr} pre />}
+                {!r.firstFail && r.stderr && r.verdict !== 'accepted' && (
+                  <CaseBlock label={t('judge.stderr')} value={r.stderr} pre />
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

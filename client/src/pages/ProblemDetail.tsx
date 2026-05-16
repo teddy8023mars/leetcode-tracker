@@ -165,6 +165,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
                 problemId={p.id}
                 titleSlug={p.titleSlug}
                 codeSnippets={snippets}
+                exampleTestcases={(p as { exampleTestcases?: string | null }).exampleTestcases}
               />
             </section>
           </div>
