@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setTheme('dark')}
-                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'dark' ? 'bg-slate-600 shadow-sm' : 'opacity-50'}`}
+                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'dark' ? 'bg-slate-600 shadow-sm' : ''}`}
               >🌙</button>
             </div>
           </div>
