@@ -54,6 +54,10 @@ async function taskInitialBootstrap() {
   const lists: { slug: string; titleEn: string; titleZh: string }[] = [
     { slug: 'top-100-liked', titleEn: 'Hot 100', titleZh: '热题 100' },
     { slug: 'top-interview-150', titleEn: 'Top Interview 150', titleZh: '面试经典 150 题' },
+    { slug: 'leetcode-75', titleEn: 'LeetCode 75', titleZh: 'LeetCode 75' },
+    { slug: 'dynamic-programming', titleEn: 'Dynamic Programming', titleZh: '动态规划' },
+    { slug: 'amazon-spring-23-high-frequency', titleEn: 'Amazon High Frequency', titleZh: 'Amazon 高频题' },
+    { slug: 'google-spring-23-high-frequency', titleEn: 'Google High Frequency', titleZh: 'Google 高频题' },
   ];
   const skipCn = process.env.BOOTSTRAP_SKIP_CN === '1';
   const skipLlm = process.env.BOOTSTRAP_SKIP_LLM === '1';
