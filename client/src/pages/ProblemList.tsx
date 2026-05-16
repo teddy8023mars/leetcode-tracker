@@ -31,13 +31,44 @@ type ProblemRow = {
 
 const PAGE_SIZES = [20, 50, 100];
 
+const TAG_ZH: Record<string, string> = {
+  'array': '数组', 'string': '字符串', 'hash-table': '哈希表',
+  'dynamic-programming': '动态规划', 'two-pointers': '双指针',
+  'depth-first-search': '深度优先搜索', 'tree': '树',
+  'binary-tree': '二叉树', 'breadth-first-search': '广度优先搜索',
+  'linked-list': '链表', 'math': '数学', 'matrix': '矩阵',
+  'divide-and-conquer': '分治', 'sorting': '排序', 'stack': '栈',
+  'binary-search': '二分查找', 'backtracking': '回溯',
+  'recursion': '递归', 'greedy': '贪心', 'bit-manipulation': '位运算',
+  'sliding-window': '滑动窗口', 'heap-priority-queue': '堆（优先队列）',
+  'design': '设计', 'trie': '字典树', 'binary-search-tree': '二叉搜索树',
+  'monotonic-stack': '单调栈', 'simulation': '模拟',
+  'union-find': '并查集', 'graph-theory': '图论', 'counting': '计数',
+  'prefix-sum': '前缀和', 'merge-sort': '归并排序',
+  'memoization': '记忆化搜索', 'topological-sort': '拓扑排序',
+  'quickselect': '快速选择', 'queue': '队列', 'graph': '图',
+  'monotonic-queue': '单调队列', 'string-matching': '字符串匹配',
+  'combinatorics': '组合数学', 'doubly-linked-list': '双向链表',
+  'geometry': '几何', 'iterator': '迭代器', 'counting-sort': '计数排序',
+  'data-stream': '数据流', 'bucket-sort': '桶排序',
+  'randomized': '随机化', 'shortest-path': '最短路径',
+  'number-theory': '数论', 'bitmask': '状态压缩',
+  'ordered-set': '有序集合', 'line-sweep': '扫描线',
+  'enumeration': '枚举', 'interactive': '交互',
+  'hash-function': '哈希函数', 'rolling-hash': '滚动哈希',
+  'brainteaser': '脑筋急转弯', 'database': '数据库',
+  'concurrency': '多线程', 'probability-and-statistics': '概率与统计',
+  'suffix-array': '后缀数组', 'segment-tree': '线段树',
+  'binary-indexed-tree': '树状数组', 'game-theory': '博弈论',
+};
+
 export function ProblemList() {
   const t = useT();
   const { lang } = useLang();
   const [, navigate] = useLocation();
   const { filters, setFilter, reset } = useFilters({ defaults: {} });
   const search = useDebounce(filters.search as string | undefined, 300);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
 
   const query = trpc.problems.list.useQuery(
@@ -110,9 +141,9 @@ export function ProblemList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('filter.all')}</SelectItem>
-                <SelectItem value="Easy">{t('difficulty.Easy')}</SelectItem>
-                <SelectItem value="Medium">{t('difficulty.Medium')}</SelectItem>
-                <SelectItem value="Hard">{t('difficulty.Hard')}</SelectItem>
+                <SelectItem value="Easy"><span className="text-emerald-600">{t('difficulty.Easy')}</span></SelectItem>
+                <SelectItem value="Medium"><span className="text-amber-600">{t('difficulty.Medium')}</span></SelectItem>
+                <SelectItem value="Hard"><span className="text-rose-600">{t('difficulty.Hard')}</span></SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -132,9 +163,9 @@ export function ProblemList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('filter.all')}</SelectItem>
-                <SelectItem value="todo">{t('status.todo')}</SelectItem>
-                <SelectItem value="reviewing">{t('status.reviewing')}</SelectItem>
-                <SelectItem value="done">{t('status.done')}</SelectItem>
+                <SelectItem value="todo"><span className="text-amber-500">{t('status.todo')}</span></SelectItem>
+                <SelectItem value="reviewing"><span className="text-blue-600">{t('status.reviewing')}</span></SelectItem>
+                <SelectItem value="done"><span className="text-emerald-600">{t('status.done')}</span></SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -157,7 +188,7 @@ export function ProblemList() {
                   <SelectItem value="all">{t('filter.all')}</SelectItem>
                   {allTags.map(tag => (
                     <SelectItem key={tag.slug} value={tag.slug}>
-                      {tag.name} ({tag.count})
+                      {lang === 'zh' ? (TAG_ZH[tag.slug] ?? tag.name) : tag.name} ({tag.count})
                     </SelectItem>
                   ))}
                 </SelectContent>
