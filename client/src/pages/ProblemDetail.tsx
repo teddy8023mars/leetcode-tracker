@@ -210,7 +210,7 @@ function SolutionPanel({ problemId }: { problemId: number }) {
     <div className="space-y-6">
       {cleaned != null ? (
         <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm dark:prose-invert max-w-none">
             <Streamdown>{cleaned}</Streamdown>
           </div>
         </section>
@@ -272,14 +272,14 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
 
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-ink">{t('problem.aiApproach')}</h3>
-        <div className="prose prose-sm max-w-none">
+        <div className="prose prose-sm dark:prose-invert max-w-none">
           <Streamdown>{data.approachMarkdown}</Streamdown>
         </div>
       </div>
 
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-ink">{t('problem.aiComplexity')}</h3>
-        <div className="prose prose-sm max-w-none">
+        <div className="prose prose-sm dark:prose-invert max-w-none">
           <Streamdown>{data.complexityMarkdown}</Streamdown>
         </div>
       </div>
@@ -308,7 +308,7 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
       {data.pitfallsMarkdown && data.pitfallsMarkdown.trim() !== '' && (
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-ink">{t('problem.aiPitfalls')}</h3>
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm dark:prose-invert max-w-none">
             <Streamdown>{data.pitfallsMarkdown}</Streamdown>
           </div>
         </div>

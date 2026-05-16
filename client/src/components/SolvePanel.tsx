@@ -453,7 +453,7 @@ function SubmissionDetailDialog({
       role="dialog"
       aria-modal="false"
       style={{ position: 'fixed', top: anchor.y, left: anchor.x, zIndex: 60, maxWidth: 'min(900px, 92vw)', maxHeight: '82vh' }}
-      className="flex flex-col rounded-lg border border-border bg-white shadow-2xl shadow-black/20 ring-1 ring-black/5"
+      className="flex flex-col rounded-lg border border-border bg-white dark:bg-slate-900 shadow-2xl shadow-black/20 ring-1 ring-black/5"
     >
       <div
         onPointerDown={onDragStart}
