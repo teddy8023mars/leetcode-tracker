@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Editor from '@monaco-editor/react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import Editor, { type OnMount } from '@monaco-editor/react';
 import { createPortal } from 'react-dom';
 import { trpc } from '@/lib/trpc';
 import { useT, useLang } from '@/contexts/LangContext';
@@ -102,6 +102,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
   const isLoggedIn = !!me.data;
 
+  const vimDisposeRef = useRef<{ dispose: () => void } | null>(null);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const statusBarRef = useRef<HTMLDivElement | null>(null);
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
   const [showSettings, setShowSettings] = useState(false);
   const updateSetting = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => {
@@ -111,6 +114,27 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       return next;
     });
   };
+
+  useEffect(() => {
+    if (editorSettings.vimMode && editorRef.current && statusBarRef.current) {
+      import('monaco-vim').then(({ initVimMode }) => {
+        if (vimDisposeRef.current) vimDisposeRef.current.dispose();
+        vimDisposeRef.current = initVimMode(editorRef.current!, statusBarRef.current!);
+      });
+    } else if (!editorSettings.vimMode && vimDisposeRef.current) {
+      vimDisposeRef.current.dispose();
+      vimDisposeRef.current = null;
+    }
+  }, [editorSettings.vimMode]);
+
+  const handleEditorMount: OnMount = useCallback((editor) => {
+    editorRef.current = editor;
+    if (editorSettings.vimMode && statusBarRef.current) {
+      import('monaco-vim').then(({ initVimMode }) => {
+        vimDisposeRef.current = initVimMode(editor, statusBarRef.current!);
+      });
+    }
+  }, [editorSettings.vimMode]);
 
   const codeKey = (l: Lang) => `lc.code.${titleSlug}.${l}`;
   const [language, setLanguage] = useState<Lang>('python');
@@ -265,6 +289,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           language={MONACO_LANG[language]}
           value={code}
           onChange={(v) => setCode(v ?? '')}
+          onMount={handleEditorMount}
           theme="vs"
           options={{
             minimap: { enabled: false },
@@ -278,6 +303,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
             lineNumbers: editorSettings.relativeLineNumbers ? 'relative' : 'on',
           }}
         />
+        {editorSettings.vimMode && (
+          <div ref={statusBarRef} className="px-3 py-1 text-xs font-mono bg-slate-100 border-t border-border" />
+        )}
       </div>
 
       <BottomPanel
