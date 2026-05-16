@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getHighlighter } from '@/lib/shiki';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export function CodeBlock({
   language,
@@ -10,16 +11,20 @@ export function CodeBlock({
 }) {
   const [html, setHtml] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const { resolved } = useTheme();
+  const theme = resolved === 'dark' ? 'github-dark' : 'github-light';
 
   useEffect(() => {
     let cancelled = false;
+    setHtml(null);
+    setFailed(false);
     const timer = setTimeout(() => {
       if (!cancelled) setFailed(true);
     }, 5000);
     getHighlighter()
       .then((h) => {
         if (cancelled) return;
-        const out = h.codeToHtml(code, { lang: language, theme: 'github-light' });
+        const out = h.codeToHtml(code, { lang: language, theme });
         clearTimeout(timer);
         setHtml(out);
       })
@@ -30,7 +35,7 @@ export function CodeBlock({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [language, code]);
+  }, [language, code, theme]);
 
   if (failed || !html) {
     return (
@@ -41,7 +46,7 @@ export function CodeBlock({
   }
   return (
     <div
-      className="overflow-auto rounded-md bg-white border p-4 [&_pre]:!bg-transparent [&_pre]:!p-0 font-mono text-sm"
+      className="overflow-auto rounded-md bg-white dark:bg-slate-900 border border-border p-4 [&_pre]:!bg-transparent [&_pre]:!p-0 font-mono text-sm"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

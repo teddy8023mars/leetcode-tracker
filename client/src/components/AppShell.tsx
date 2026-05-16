@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={item.href}
                   className={`px-3 py-2 rounded-md font-mono text-sm ${
                     active
-                      ? 'bg-ink text-primary-foreground'
+                      ? 'bg-ink text-primary-foreground dark:bg-slate-700 dark:text-white'
                       : 'text-ink-soft hover:bg-secondary'
                   }`}
                 >
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
         </aside>
-        <main className="flex-1 p-8 overflow-auto">{children}</main>
+        <main className="flex-1 p-8 overflow-auto dark:text-slate-200">{children}</main>
       </div>
     </>
   );

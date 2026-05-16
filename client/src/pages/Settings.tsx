@@ -8,7 +8,7 @@ export function Settings() {
     <div className="max-w-2xl space-y-6">
       <h1 className="text-3xl font-extrabold tracking-tight">{t('nav.settings')}</h1>
 
-      <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+      <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
         <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-4">
           {t('settings.language')}
         </h2>

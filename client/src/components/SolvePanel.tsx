@@ -257,7 +257,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       </div>
 
       {showSettings && (
-        <div className="flex items-center gap-5 flex-wrap text-sm font-mono border border-border rounded-lg px-4 py-3 bg-white/80 dark:bg-slate-800/80">
+        <div className="flex items-center gap-5 flex-wrap text-sm font-mono border border-border rounded-lg px-4 py-3 bg-white/80 dark:bg-slate-800/80 dark:bg-slate-800/80">
           <label className="flex items-center gap-1.5">
             <span className="text-ink-soft">Font</span>
             <select value={editorSettings.fontSize} onChange={e => updateSetting('fontSize', Number(e.target.value))} className="border rounded px-1 py-0.5">
@@ -306,7 +306,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           }}
         />
         {editorSettings.vimMode && (
-          <div ref={statusBarRef} className="px-3 py-1 text-xs font-mono bg-slate-100 border-t border-border" />
+          <div ref={statusBarRef} className="px-3 py-1 text-xs font-mono bg-slate-100 dark:bg-slate-800 border-t border-border" />
         )}
       </div>
 
@@ -326,7 +326,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           {submissions.isLoading ? (
             <p className="text-sm text-ink-soft">{t('loading')}</p>
           ) : submissions.data && submissions.data.length > 0 ? (
-            <ul className="border border-border rounded divide-y divide-border bg-white/60 dark:bg-slate-800/60">
+            <ul className="border border-border rounded divide-y divide-border bg-white/60 dark:bg-slate-800/60 dark:bg-slate-800/60">
               {submissions.data.map((s) => (
                 <li key={s.id}>
                   <button
@@ -618,7 +618,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
   useEffect(() => { if (r) setBottomTab('result'); }, [r]);
 
   return (
-    <div className="border border-border rounded-lg bg-white/60 dark:bg-slate-800/60 overflow-hidden">
+    <div className="border border-border rounded-lg bg-white/60 dark:bg-slate-800/60 dark:bg-slate-800/60 overflow-hidden">
       <div className="flex border-b border-border">
         <button
           type="button"
@@ -664,7 +664,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
                   <div className="space-y-2">
                     {cases[activeCase].lines.map((line, i) => (
                       <div key={i}>
-                        <pre className="bg-secondary/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{line}</pre>
+                        <pre className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto">{line}</pre>
                       </div>
                     ))}
                   </div>

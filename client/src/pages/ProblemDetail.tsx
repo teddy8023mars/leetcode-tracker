@@ -116,7 +116,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
               <span className="text-border mx-1">|</span>
             )}
             {uniqueCompanies.map(c => (
-              <span key={c.companySlug} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-blue-50 text-blue-700 rounded" title={c.companyName}>
+              <span key={c.companySlug} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded" title={c.companyName}>
                 <img
                   src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${c.companySlug === 'bytedance' ? 'jobs.bytedance.com' : c.companySlug === 'shopee' ? 'shopee.sg' : c.companySlug === 'didi' ? 'didiglobal.com' : c.companySlug + '.com'}&size=32`}
                   alt=""
@@ -262,8 +262,8 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
   };
 
   return (
-    <section className="bg-gradient-to-br from-emerald-50/80 to-white/70 backdrop-blur border border-emerald-200 rounded-lg p-6 space-y-5">
-      <div className="flex items-center gap-2 border-b border-emerald-200 pb-2">
+    <section className="bg-gradient-to-br from-emerald-50/80 to-white/70 dark:from-emerald-950/50 dark:to-slate-800/70 backdrop-blur border border-emerald-200 dark:border-emerald-800 rounded-lg p-6 space-y-5">
+      <div className="flex items-center gap-2 border-b border-emerald-200 dark:border-emerald-800 pb-2">
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">AI</span>
         <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
           {t('problem.aiSolution')}
@@ -294,7 +294,7 @@ function AiSolutionSection({ data }: { data: AiSolutionData }) {
               className={
                 'px-3 py-1.5 text-sm font-mono rounded transition-colors ' +
                 (codeLang === key
-                  ? 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'
                   : 'bg-secondary text-ink-soft hover:text-ink')
               }
             >
@@ -336,7 +336,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
   const statusButtons: { status: 'todo' | 'reviewing' | 'done'; label: string; activeClass: string }[] = [
     { status: 'todo', label: t('progress.todo'), activeClass: 'bg-secondary text-ink' },
     { status: 'reviewing', label: t('progress.reviewing'), activeClass: 'bg-pink-100 text-pink-800' },
-    { status: 'done', label: t('progress.done'), activeClass: 'bg-emerald-100 text-emerald-800' },
+    { status: 'done', label: t('progress.done'), activeClass: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200' },
   ];
 
   const handleStatus = (status: 'todo' | 'reviewing' | 'done') => {
