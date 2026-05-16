@@ -24,27 +24,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           <h1 className="font-sans text-lg font-extrabold tracking-tight leading-tight mb-4">
             🐻 刷题宝典
           </h1>
-          <div className="mb-6 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
-              className="px-2.5 py-1.5 text-sm font-mono rounded border border-border hover:bg-secondary transition-colors"
-              title={lang === 'en' ? 'Switch to Chinese' : '切换为英文'}
-            >
-              <span className={lang === 'en' ? 'font-bold' : 'opacity-40'}>EN</span>
-              <span className="mx-0.5 opacity-30">/</span>
-              <span className={lang === 'zh' ? 'font-bold' : 'opacity-40'}>中</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme(resolved === 'light' ? 'dark' : 'light')}
-              className="px-2.5 py-1.5 text-sm rounded border border-border hover:bg-secondary transition-colors"
-              title={resolved === 'light' ? 'Dark mode' : 'Light mode'}
-            >
-              <span className={resolved === 'light' ? '' : 'opacity-40'}>☀️</span>
-              <span className="mx-0.5 opacity-30">/</span>
-              <span className={resolved === 'dark' ? '' : 'opacity-40'}>🌙</span>
-            </button>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="relative flex bg-secondary dark:bg-slate-800 rounded-full p-0.5 border border-border">
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`relative z-10 px-2.5 py-1 text-xs font-mono rounded-full transition-all ${lang === 'en' ? 'bg-white dark:bg-slate-600 text-ink shadow-sm font-bold' : 'text-ink-soft'}`}
+              >EN</button>
+              <button
+                type="button"
+                onClick={() => setLang('zh')}
+                className={`relative z-10 px-2.5 py-1 text-xs font-mono rounded-full transition-all ${lang === 'zh' ? 'bg-white dark:bg-slate-600 text-ink shadow-sm font-bold' : 'text-ink-soft'}`}
+              >中</button>
+            </div>
+            <div className="relative flex bg-secondary dark:bg-slate-800 rounded-full p-0.5 border border-border">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'light' ? 'bg-white shadow-sm' : 'opacity-50'}`}
+              >☀️</button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`relative z-10 px-2 py-1 text-xs rounded-full transition-all ${resolved === 'dark' ? 'bg-slate-600 shadow-sm' : 'opacity-50'}`}
+              >🌙</button>
+            </div>
           </div>
           <nav className="flex flex-col gap-1 flex-1">
             {NAV.map((item) => {
