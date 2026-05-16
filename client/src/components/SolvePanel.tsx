@@ -552,7 +552,7 @@ function CaseBlock({ label, value, pre }: { label: string; value: unknown; pre?:
   else if (typeof value === 'string') display = value;
   else {
     try {
-      display = JSON.stringify(value, null, 2);
+      display = JSON.stringify(value);
     } catch {
       display = String(value);
     }
