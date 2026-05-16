@@ -3,6 +3,7 @@ import Editor, { type OnMount } from '@monaco-editor/react';
 import { createPortal } from 'react-dom';
 import { trpc } from '@/lib/trpc';
 import { useT, useLang } from '@/contexts/LangContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface CodeSnippet {
   lang?: string;
@@ -101,6 +102,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   const { lang: uiLang } = useLang();
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
   const isLoggedIn = !!me.data;
+  const { resolved: themeResolved } = useTheme();
 
   const vimDisposeRef = useRef<{ dispose: () => void } | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -255,7 +257,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       </div>
 
       {showSettings && (
-        <div className="flex items-center gap-5 flex-wrap text-sm font-mono border border-border rounded-lg px-4 py-3 bg-white/80">
+        <div className="flex items-center gap-5 flex-wrap text-sm font-mono border border-border rounded-lg px-4 py-3 bg-white/80 dark:bg-slate-800/80">
           <label className="flex items-center gap-1.5">
             <span className="text-ink-soft">Font</span>
             <select value={editorSettings.fontSize} onChange={e => updateSetting('fontSize', Number(e.target.value))} className="border rounded px-1 py-0.5">
@@ -290,7 +292,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           value={code}
           onChange={(v) => setCode(v ?? '')}
           onMount={handleEditorMount}
-          theme="vs"
+          theme={themeResolved === 'dark' ? 'vs-dark' : 'vs'}
           options={{
             minimap: { enabled: false },
             fontSize: editorSettings.fontSize,
@@ -324,7 +326,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           {submissions.isLoading ? (
             <p className="text-sm text-ink-soft">{t('loading')}</p>
           ) : submissions.data && submissions.data.length > 0 ? (
-            <ul className="border border-border rounded divide-y divide-border bg-white/60">
+            <ul className="border border-border rounded divide-y divide-border bg-white/60 dark:bg-slate-800/60">
               {submissions.data.map((s) => (
                 <li key={s.id}>
                   <button
@@ -616,7 +618,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, t }: {
   useEffect(() => { if (r) setBottomTab('result'); }, [r]);
 
   return (
-    <div className="border border-border rounded-lg bg-white/60 overflow-hidden">
+    <div className="border border-border rounded-lg bg-white/60 dark:bg-slate-800/60 overflow-hidden">
       <div className="flex border-b border-border">
         <button
           type="button"

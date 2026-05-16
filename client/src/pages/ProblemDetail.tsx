@@ -60,7 +60,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
 
   const descriptionCard = (
-    <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+    <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
       <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
         <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
           {t('problem.description')}
@@ -137,7 +137,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
             {descriptionCard}
             <SolutionPanel problemId={p.id} />
             {similarQuestions.length > 0 && (
-              <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-4">
+              <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-4">
                 <h3 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-3">
                   {t('problem.relatedProblems')}
                 </h3>
@@ -160,7 +160,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60} minSize={30}>
           <div className="h-full overflow-y-auto">
-            <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+            <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
               <SolvePanel
                 problemId={p.id}
                 titleSlug={p.titleSlug}
@@ -209,7 +209,7 @@ function SolutionPanel({ problemId }: { problemId: number }) {
   return (
     <div className="space-y-6">
       {cleaned != null ? (
-        <section className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+        <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
           <div className="prose prose-sm max-w-none">
             <Streamdown>{cleaned}</Streamdown>
           </div>
@@ -219,7 +219,7 @@ function SolutionPanel({ problemId }: { problemId: number }) {
       )}
 
       {aiQ.isLoading && (
-        <div className="bg-white/70 backdrop-blur border border-border rounded-lg p-6">
+        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
           <div className="h-4 rounded bg-secondary animate-pulse w-1/3 mb-4" />
           <div className="space-y-2">
             <div className="h-3 rounded bg-secondary animate-pulse w-full" />

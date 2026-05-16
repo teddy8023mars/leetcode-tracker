@@ -54,6 +54,12 @@ html {
   font-size: 16.5px;
 }
 
+body {
+  background-color: var(--blueprint-bg);
+  color: var(--blueprint-ink);
+  transition: background-color 0.2s, color 0.2s;
+}
+
 :root {
   /* Blueprint palette (M1 spec) */
   --blueprint-bg: #FAFBFC;
@@ -135,6 +141,18 @@ html {
   --sidebar-accent-foreground:  oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.488 0.243 264.376);
+
+  --blueprint-bg: #0f1117;
+  --blueprint-grid: #1e2330;
+  --blueprint-grid-strong: #2a3040;
+  --blueprint-ink: #e5e7eb;
+  --blueprint-ink-soft: #9ca3af;
+  --blueprint-mint: #1a3a3a;
+  --blueprint-mint-strong: #2d6b6b;
+  --blueprint-pink: #3a1a2a;
+  --blueprint-pink-strong: #6b2d4a;
+  --blueprint-warn: #6b4a1a;
+  --blueprint-error: #b33a30;
 }
 
 @layer base {
