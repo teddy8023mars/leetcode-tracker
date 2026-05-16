@@ -32,6 +32,8 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const { lang } = useLang();
   const q = trpc.problems.getBySlug.useQuery({ titleSlug }, { staleTime: 60_000 });
   const allQ = trpc.problems.list.useQuery({ limit: 200 }, { staleTime: 120_000 });
+  const problemId = (q.data as ProblemDetailRow | undefined)?.id ?? 0;
+  const companyQ = trpc.problems.companyTags.useQuery({ problemId }, { staleTime: 120_000, enabled: problemId > 0 });
 
   const { prev, next } = useMemo(() => {
     const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
@@ -52,10 +54,8 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const content = wantZh ? p.contentZh || p.contentEn : p.contentEn;
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
-
   const similarQuestions = (p.similarQuestionsJson ?? []) as SimilarQuestion[];
   const topicTags = (p.topicTagsJson ?? []) as { name: string; slug: string }[];
-  const companyQ = trpc.problems.companyTags.useQuery({ problemId: p.id }, { staleTime: 120_000 });
   const companies = (companyQ.data ?? []) as Array<{ companySlug: string; companyName: string }>;
   const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
 
