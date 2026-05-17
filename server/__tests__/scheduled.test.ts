@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import express from 'express';
-import request from 'supertest';
-import { createScheduledRouter } from '../scheduled';
+import type { NextFunction, Request, Response } from 'express';
+import { makeHeartbeatAuth } from '../_core/heartbeatAuth';
+import {
+  runScheduledEndpoint,
+  scheduledEndpointSyncTypes,
+  type ScheduledEndpointPath,
+} from '../scheduled';
 
 vi.mock('../sync', () => ({
   runSync: vi.fn().mockResolvedValue({ syncLogId: 42 }),
@@ -11,94 +15,67 @@ import { runSync } from '../sync';
 
 const mockedRunSync = vi.mocked(runSync);
 
-function buildApp(secret: string) {
-  const app = express();
-  app.use(express.json());
-  app.use('/api/scheduled', createScheduledRouter(secret));
-  return app;
-}
-
-const ENDPOINTS = ['/daily-sync-lists', '/daily-sync-companies', '/daily-sync-meta'] as const;
+const ENDPOINTS = Object.keys(scheduledEndpointSyncTypes) as ScheduledEndpointPath[];
 const SECRET = 'test-secret';
+
+function callAuth(secret: string, got?: string) {
+  const next = vi.fn() as unknown as NextFunction;
+  const json = vi.fn();
+  const status = vi.fn().mockReturnValue({ json });
+  const res = { status } as unknown as Response;
+  const headers = got === undefined ? {} : { 'x-heartbeat-secret': got };
+  const req = { headers } as unknown as Request;
+
+  makeHeartbeatAuth(secret)(req, res, next);
+
+  return { next, status, json };
+}
 
 describe('scheduled endpoints', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockedRunSync.mockResolvedValue({ syncLogId: 42 });
   });
 
-  describe('auth: rejects requests without valid heartbeat secret', () => {
-    it.each(ENDPOINTS)('POST %s returns 401 when no secret header', async (endpoint) => {
-      const app = buildApp(SECRET);
-      const res = await request(app).post(`/api/scheduled${endpoint}`);
-      expect(res.status).toBe(401);
-      expect(res.body).toMatchObject({ error: 'invalid heartbeat secret' });
+  describe('auth middleware', () => {
+    it('rejects requests without a valid heartbeat secret', () => {
+      const missing = callAuth(SECRET);
+      expect(missing.status).toHaveBeenCalledWith(401);
+      expect(missing.json).toHaveBeenCalledWith({ error: 'invalid heartbeat secret' });
+      expect(missing.next).not.toHaveBeenCalled();
+
+      const wrong = callAuth(SECRET, 'wrong-secret');
+      expect(wrong.status).toHaveBeenCalledWith(401);
+      expect(wrong.json).toHaveBeenCalledWith({ error: 'invalid heartbeat secret' });
+      expect(wrong.next).not.toHaveBeenCalled();
     });
 
-    it.each(ENDPOINTS)('POST %s returns 401 when secret header is wrong', async (endpoint) => {
-      const app = buildApp(SECRET);
-      const res = await request(app)
-        .post(`/api/scheduled${endpoint}`)
-        .set('x-heartbeat-secret', 'wrong-secret');
-      expect(res.status).toBe(401);
-      expect(res.body).toMatchObject({ error: 'invalid heartbeat secret' });
+    it('accepts requests with the correct heartbeat secret', () => {
+      const auth = callAuth(SECRET, SECRET);
+      expect(auth.next).toHaveBeenCalledOnce();
+      expect(auth.status).not.toHaveBeenCalled();
     });
-  });
 
-  describe('auth: accepts requests with correct heartbeat secret', () => {
-    it.each(ENDPOINTS)('POST %s returns 200 with sync result', async (endpoint) => {
-      const app = buildApp(SECRET);
-      const res = await request(app)
-        .post(`/api/scheduled${endpoint}`)
-        .set('x-heartbeat-secret', SECRET);
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ syncLogId: 42 });
+    it('allows all requests when secret is empty in dev mode', () => {
+      const auth = callAuth('');
+      expect(auth.next).toHaveBeenCalledOnce();
+      expect(auth.status).not.toHaveBeenCalled();
     });
   });
 
-  describe('dev mode: allows all when secret is empty', () => {
-    it.each(ENDPOINTS)('POST %s returns 200 without any secret header', async (endpoint) => {
-      const app = buildApp('');
-      const res = await request(app).post(`/api/scheduled${endpoint}`);
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ syncLogId: 42 });
+  describe('dispatch helper', () => {
+    it.each(ENDPOINTS)('%s returns the sync result', async (endpoint) => {
+      await expect(runScheduledEndpoint(endpoint)).resolves.toEqual({ syncLogId: 42 });
     });
-  });
 
-  describe('error handling: returns error JSON when sync throws', () => {
-    it.each(ENDPOINTS)('POST %s returns error JSON on sync failure', async (endpoint) => {
+    it.each(ENDPOINTS)('%s returns error JSON when sync throws', async (endpoint) => {
       mockedRunSync.mockRejectedValueOnce(new Error('sync boom'));
-      const app = buildApp(SECRET);
-      const res = await request(app)
-        .post(`/api/scheduled${endpoint}`)
-        .set('x-heartbeat-secret', SECRET);
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ error: 'sync boom' });
-    });
-  });
-
-  describe('endpoint delegation: each endpoint calls runSync with the correct sync type', () => {
-    it('POST /daily-sync-lists calls runSync with "daily-sync-lists"', async () => {
-      const app = buildApp(SECRET);
-      await request(app)
-        .post('/api/scheduled/daily-sync-lists')
-        .set('x-heartbeat-secret', SECRET);
-      expect(mockedRunSync).toHaveBeenCalledWith('daily-sync-lists');
+      await expect(runScheduledEndpoint(endpoint)).resolves.toEqual({ error: 'sync boom' });
     });
 
-    it('POST /daily-sync-companies calls runSync with "daily-sync-companies"', async () => {
-      const app = buildApp(SECRET);
-      await request(app)
-        .post('/api/scheduled/daily-sync-companies')
-        .set('x-heartbeat-secret', SECRET);
-      expect(mockedRunSync).toHaveBeenCalledWith('daily-sync-companies');
-    });
-
-    it('POST /daily-sync-meta calls runSync with "daily-sync-meta"', async () => {
-      const app = buildApp(SECRET);
-      await request(app)
-        .post('/api/scheduled/daily-sync-meta')
-        .set('x-heartbeat-secret', SECRET);
-      expect(mockedRunSync).toHaveBeenCalledWith('daily-sync-meta');
+    it.each(ENDPOINTS)('%s calls runSync with the configured sync type', async (endpoint) => {
+      await runScheduledEndpoint(endpoint);
+      expect(mockedRunSync).toHaveBeenCalledWith(scheduledEndpointSyncTypes[endpoint]);
     });
   });
 });

@@ -6,7 +6,15 @@ import { trpc } from '@/lib/trpc';
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    problems: { getBySlug: { useQuery: vi.fn() } },
+    problems: {
+      getBySlug: { useQuery: vi.fn() },
+      list: { useQuery: vi.fn().mockReturnValue({ data: { items: [] }, isLoading: false }) },
+      companyTags: { useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }) },
+      solutions: { useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }) },
+    },
+    aiSolutions: {
+      get: { useQuery: vi.fn().mockReturnValue({ data: null, isLoading: false }) },
+    },
     progress: {
       get: { useQuery: vi.fn().mockReturnValue({ data: null }) },
       update: { useMutation: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }) },
@@ -17,6 +25,10 @@ vi.mock('@/lib/trpc', () => ({
       progress: { get: { invalidate: vi.fn() }, listDue: { invalidate: vi.fn() }, listAll: { invalidate: vi.fn() } },
     }),
   },
+}));
+
+vi.mock('@/components/SolvePanel', () => ({
+  SolvePanel: () => <div data-testid="solve-panel" />,
 }));
 
 describe('ProblemDetail', () => {

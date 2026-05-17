@@ -154,7 +154,8 @@ export function ProblemList() {
     else cmp = a.frontendId - b.frontendId;
     return sortDir === 'desc' ? -cmp : cmp;
   }) : filteredItems;
-  const total = allItems.length;
+  const serverTotal = typeof query.data?.total === 'number' ? query.data.total : undefined;
+  const displayTotal = tagFilter ? allItems.length : serverTotal ?? allItems.length;
   const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const items = allItems.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -291,7 +292,7 @@ export function ProblemList() {
               className="font-mono max-w-md"
             />
             <span className="text-xs text-ink-soft font-mono whitespace-nowrap">
-              {t('problemList.showing', { shown: `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, allItems.length)}`, total: allItems.length })}
+              {t('problemList.showing', { shown: `${allItems.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, allItems.length)}`, total: displayTotal })}
             </span>
           </div>
 
