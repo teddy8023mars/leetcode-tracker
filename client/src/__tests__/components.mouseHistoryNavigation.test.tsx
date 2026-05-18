@@ -86,4 +86,67 @@ describe('MouseHistoryNavigation', () => {
 
     expect(back).toHaveBeenCalledOnce();
   });
+
+  it('maps BrowserBack keyboard events to browser history back', () => {
+    window.history.pushState({}, '', '/problems');
+    window.history.pushState({}, '', '/problems/two-sum');
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'BrowserBack',
+    });
+
+    render(<MouseHistoryNavigation />);
+    window.dispatchEvent(event);
+
+    expect(back).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('maps browser history keyboard shortcuts to browser history navigation', () => {
+    window.history.pushState({}, '', '/problems');
+    window.history.pushState({}, '', '/problems/two-sum');
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    const forward = vi.spyOn(window.history, 'forward').mockImplementation(() => undefined);
+
+    render(<MouseHistoryNavigation />);
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        altKey: true,
+        key: 'ArrowLeft',
+      }),
+    );
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        metaKey: true,
+        key: ']',
+      }),
+    );
+
+    expect(back).toHaveBeenCalledOnce();
+    expect(forward).toHaveBeenCalledOnce();
+  });
+
+  it('does not capture history shortcuts from editable fields', () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    const input = document.createElement('input');
+    document.body.append(input);
+
+    render(<MouseHistoryNavigation />);
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        altKey: true,
+        key: 'ArrowLeft',
+      }),
+    );
+
+    expect(back).not.toHaveBeenCalled();
+  });
 });
