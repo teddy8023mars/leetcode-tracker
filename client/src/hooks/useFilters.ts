@@ -3,8 +3,8 @@ import { useCallback, useState } from 'react';
 export type FilterValue = string | boolean | undefined;
 export type FilterMap = Record<string, FilterValue>;
 
-export function useFilters(opts: { defaults: FilterMap }) {
-  const [filters, setFilters] = useState<FilterMap>(opts.defaults);
+export function useFilters(opts: { defaults: FilterMap; initial?: FilterMap }) {
+  const [filters, setFilters] = useState<FilterMap>(() => opts.initial ?? opts.defaults);
 
   const setFilter = useCallback((key: string, value: FilterValue) => {
     setFilters((prev) => {

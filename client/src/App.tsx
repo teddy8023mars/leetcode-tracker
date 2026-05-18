@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LangProvider } from './contexts/LangContext';
 import { AppShell } from './components/AppShell';
+import { MouseHistoryNavigation } from './components/MouseHistoryNavigation';
 import { ProblemList } from './pages/ProblemList';
 import { ProblemDetail } from './pages/ProblemDetail';
 import { SyncStatus } from './pages/SyncStatus';
@@ -45,6 +46,7 @@ function App() {
         <LangProvider>
           <TooltipProvider>
             <Toaster />
+            <MouseHistoryNavigation />
             <AppShell>
               <Router />
             </AppShell>

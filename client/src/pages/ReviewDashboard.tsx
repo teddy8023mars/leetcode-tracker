@@ -51,12 +51,34 @@ function formatDate(value: Date | string | null | undefined, locale: string) {
   return new Date(value).toLocaleDateString(locale);
 }
 
-function StatBox({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
-  return (
-    <div className="border border-border bg-white/70 dark:bg-slate-800/70 rounded-lg px-4 py-3">
+function StatBox({
+  href,
+  label,
+  value,
+  tone,
+}: {
+  href?: string;
+  label: string;
+  value: string | number;
+  tone?: string;
+}) {
+  const className = [
+    'block border border-border bg-white/70 dark:bg-slate-800/70 rounded-lg px-4 py-3',
+    href ? 'hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors' : '',
+  ].join(' ');
+  const content = (
+    <>
       <div className="font-mono text-xs uppercase tracking-widest text-ink-soft">{label}</div>
       <div className={`mt-1 text-2xl font-extrabold ${tone ?? ''}`}>{value}</div>
-    </div>
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }
 
@@ -128,9 +150,9 @@ export function ReviewDashboard() {
 
       <section className="grid grid-cols-2 xl:grid-cols-6 gap-3">
         <StatBox label={t('review.statDue')} value={dueProblems.length} tone="text-orange-600" />
-        <StatBox label={t('review.statDone')} value={dashboard.counts.done} tone="text-emerald-600" />
-        <StatBox label={t('review.statReviewing')} value={dashboard.counts.reviewing} tone="text-blue-600" />
-        <StatBox label={t('review.statTodo')} value={dashboard.counts.todo} tone="text-amber-600" />
+        <StatBox href="/problems?status=done" label={t('review.statDone')} value={dashboard.counts.done} tone="text-emerald-600" />
+        <StatBox href="/problems?status=reviewing" label={t('review.statReviewing')} value={dashboard.counts.reviewing} tone="text-blue-600" />
+        <StatBox href="/problems?status=todo" label={t('review.statTodo')} value={dashboard.counts.todo} tone="text-amber-600" />
         <StatBox label={t('review.statUntracked')} value={untracked} />
         <StatBox label={t('review.statCompletion')} value={completion} />
       </section>

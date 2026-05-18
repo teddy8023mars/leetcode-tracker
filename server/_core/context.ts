@@ -2,7 +2,7 @@ import type { CreateExpressContextOptions } from "@trpc/server/adapters/express"
 import type { User } from "../../drizzle/schema";
 import { sdk } from "./sdk";
 import { ENV } from "./env";
-import { getUserByOpenId } from "../db";
+import { getDb, getUserByOpenId, upsertUser } from "../db";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -12,6 +12,20 @@ export type TrpcContext = {
 
 async function getLocalDevUser(): Promise<User | null> {
   if (ENV.isProduction || ENV.oAuthServerUrl) return null;
+  const db = await getDb();
+  if (!db) return null;
+
+  const existing = await getUserByOpenId("local-dev");
+  if (existing) return existing;
+
+  await upsertUser({
+    openId: "local-dev",
+    name: "Local Dev",
+    email: null,
+    loginMethod: "local",
+    role: "admin",
+  });
+
   return (await getUserByOpenId("local-dev")) ?? null;
 }
 
