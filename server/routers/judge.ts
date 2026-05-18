@@ -339,6 +339,39 @@ export const judgeRouter = router({
       return rows;
     }),
 
+  /** Recent submissions for the current user across all problems. */
+  listRecent: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(20).default(8),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return await db
+        .select({
+          id: submissions.id,
+          problemId: submissions.problemId,
+          language: submissions.language,
+          verdict: submissions.verdict,
+          passedCount: submissions.passedCount,
+          totalCount: submissions.totalCount,
+          runtimeMs: submissions.runtimeMs,
+          createdAt: submissions.createdAt,
+          frontendId: problems.frontendId,
+          titleSlug: problems.titleSlug,
+          titleEn: problems.titleEn,
+          titleZh: problems.titleZh,
+          difficulty: problems.difficulty,
+        })
+        .from(submissions)
+        .innerJoin(problems, eq(submissions.problemId, problems.id))
+        .where(eq(submissions.userId, ctx.user.id))
+        .orderBy(desc(submissions.createdAt))
+        .limit(input.limit);
+    }),
+
   /** Full detail of one submission, owner-only. */
   getSubmission: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))

@@ -17,6 +17,7 @@ describe('AppShell', () => {
         </LangProvider>
       </ThemeProvider>,
     );
+    expect(screen.getByText('Review')).toBeInTheDocument();
     expect(screen.getByText('Problems')).toBeInTheDocument();
     expect(screen.getByText('Sync')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();

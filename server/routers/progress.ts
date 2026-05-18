@@ -4,13 +4,65 @@ import { TRPCError } from '@trpc/server';
 
 import { router, publicProcedure } from '../_core/trpc';
 import { getDb } from '../db';
-import { userProgress } from '../../drizzle/schema';
+import { problems, userProgress } from '../../drizzle/schema';
 import { ProgressStatusSchema } from '@shared/problemTypes';
 import { sm2 } from '../progress/sm2';
 
 const LOCAL_USER_ID = 1;
 
 export const progressRouter = router({
+  /**
+   * Dashboard-friendly summary for the local user.
+   * Includes status counts plus concrete due/review queue problem rows.
+   */
+  dashboard: publicProcedure.query(async () => {
+    const db = await getDb();
+    const empty = {
+      counts: { todo: 0, reviewing: 0, done: 0 },
+      dueProblems: [],
+      focusProblems: [],
+    };
+    if (!db) return empty;
+
+    const rows = await db
+      .select({
+        problemId: userProgress.problemId,
+        status: userProgress.status,
+        nextReviewAt: userProgress.nextReviewAt,
+        reviewCount: userProgress.reviewCount,
+        frontendId: problems.frontendId,
+        titleSlug: problems.titleSlug,
+        titleEn: problems.titleEn,
+        titleZh: problems.titleZh,
+        difficulty: problems.difficulty,
+      })
+      .from(userProgress)
+      .innerJoin(problems, eq(userProgress.problemId, problems.id))
+      .where(eq(userProgress.userId, LOCAL_USER_ID));
+
+    const counts = { todo: 0, reviewing: 0, done: 0 };
+    for (const row of rows) counts[row.status] += 1;
+
+    const now = Date.now();
+    const dueProblems = rows
+      .filter((row) => row.status === 'done' && row.nextReviewAt && new Date(row.nextReviewAt).getTime() <= now)
+      .sort((a, b) => {
+        const at = a.nextReviewAt ? new Date(a.nextReviewAt).getTime() : 0;
+        const bt = b.nextReviewAt ? new Date(b.nextReviewAt).getTime() : 0;
+        return at - bt || a.frontendId - b.frontendId;
+      });
+
+    const focusProblems = rows
+      .filter((row) => row.status === 'reviewing' || row.status === 'todo')
+      .sort((a, b) => {
+        const statusOrder = { reviewing: 0, todo: 1, done: 2 };
+        return statusOrder[a.status] - statusOrder[b.status] || a.frontendId - b.frontendId;
+      })
+      .slice(0, 8);
+
+    return { counts, dueProblems, focusProblems };
+  }),
+
   /**
    * Get a single userProgress row for the local user + problemId.
    * Returns null if not found or DB unavailable.

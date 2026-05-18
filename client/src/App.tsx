@@ -10,18 +10,22 @@ import { ProblemList } from './pages/ProblemList';
 import { ProblemDetail } from './pages/ProblemDetail';
 import { SyncStatus } from './pages/SyncStatus';
 import { Settings } from './pages/Settings';
+import { ReviewDashboard } from './pages/ReviewDashboard';
 
 function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/problems" />
+        <Redirect to="/review" />
+      </Route>
+      <Route path="/review">
+        <ReviewDashboard />
       </Route>
       <Route path="/problems">
         <ProblemList />
       </Route>
       <Route path="/problems/:slug">{(p) => <ProblemDetail titleSlug={p.slug} />}</Route>
-<Route path="/sync">
+      <Route path="/sync">
         <SyncStatus />
       </Route>
       <Route path="/settings">
