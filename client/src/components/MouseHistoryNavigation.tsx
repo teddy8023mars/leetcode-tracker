@@ -3,7 +3,22 @@ import { useLocation } from 'wouter';
 
 const DOM_MOUSE_BACK = 3;
 const DOM_MOUSE_FORWARD = 4;
+const ALT_MOUSE_BACK = 4;
+const ALT_MOUSE_FORWARD = 5;
+const BUTTONS_BACK = 8;
+const BUTTONS_FORWARD = 16;
 const DUPLICATE_EVENT_MS = 150;
+const SIDE_MOUSE_EVENTS = ['pointerdown', 'mousedown', 'mouseup', 'auxclick'] as const;
+
+type HistoryDirection = 'back' | 'forward';
+
+function historyDirectionFromEvent(event: MouseEvent): HistoryDirection | null {
+  if ((event.buttons & BUTTONS_BACK) === BUTTONS_BACK) return 'back';
+  if ((event.buttons & BUTTONS_FORWARD) === BUTTONS_FORWARD) return 'forward';
+  if (event.button === DOM_MOUSE_BACK || event.button === ALT_MOUSE_BACK) return 'back';
+  if (event.button === DOM_MOUSE_FORWARD || event.button === ALT_MOUSE_FORWARD) return 'forward';
+  return null;
+}
 
 function fallbackBackPath(pathname: string) {
   if (pathname.startsWith('/problems/')) return '/problems';
@@ -29,7 +44,8 @@ export function MouseHistoryNavigation() {
     const goForward = () => window.history.forward();
 
     const onSideMouse = (event: MouseEvent) => {
-      if (event.button !== DOM_MOUSE_BACK && event.button !== DOM_MOUSE_FORWARD) return;
+      const direction = historyDirectionFromEvent(event);
+      if (!direction) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -43,15 +59,17 @@ export function MouseHistoryNavigation() {
       }
       lastHandled.current = { button: event.button, at: now };
 
-      if (event.button === DOM_MOUSE_BACK) goBack();
+      if (direction === 'back') goBack();
       else goForward();
     };
 
-    window.addEventListener('mousedown', onSideMouse, true);
-    window.addEventListener('auxclick', onSideMouse, true);
+    SIDE_MOUSE_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, onSideMouse, true);
+    });
     return () => {
-      window.removeEventListener('mousedown', onSideMouse, true);
-      window.removeEventListener('auxclick', onSideMouse, true);
+      SIDE_MOUSE_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, onSideMouse, true);
+      });
     };
   }, [navigate]);
 
