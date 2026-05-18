@@ -7,8 +7,10 @@ const ALT_MOUSE_BACK = 4;
 const ALT_MOUSE_FORWARD = 5;
 const BUTTONS_BACK = 8;
 const BUTTONS_FORWARD = 16;
+const WHICH_MOUSE_BACK = 4;
+const WHICH_MOUSE_FORWARD = 5;
 const DUPLICATE_EVENT_MS = 150;
-const SIDE_MOUSE_EVENTS = ['pointerdown', 'mousedown', 'mouseup', 'auxclick'] as const;
+const SIDE_MOUSE_EVENTS = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'auxclick', 'click'] as const;
 
 type HistoryDirection = 'back' | 'forward';
 
@@ -17,6 +19,8 @@ function historyDirectionFromEvent(event: MouseEvent): HistoryDirection | null {
   if ((event.buttons & BUTTONS_FORWARD) === BUTTONS_FORWARD) return 'forward';
   if (event.button === DOM_MOUSE_BACK || event.button === ALT_MOUSE_BACK) return 'back';
   if (event.button === DOM_MOUSE_FORWARD || event.button === ALT_MOUSE_FORWARD) return 'forward';
+  if (event.which === WHICH_MOUSE_BACK) return 'back';
+  if (event.which === WHICH_MOUSE_FORWARD) return 'forward';
   return null;
 }
 
@@ -62,13 +66,16 @@ export function MouseHistoryNavigation() {
       if (direction === 'back') goBack();
       else goForward();
     };
+    const listener: EventListener = (event) => onSideMouse(event as MouseEvent);
+
+    const targets = [window, document, document.documentElement] as const;
 
     SIDE_MOUSE_EVENTS.forEach((eventName) => {
-      window.addEventListener(eventName, onSideMouse, true);
+      targets.forEach((target) => target.addEventListener(eventName, listener, true));
     });
     return () => {
       SIDE_MOUSE_EVENTS.forEach((eventName) => {
-        window.removeEventListener(eventName, onSideMouse, true);
+        targets.forEach((target) => target.removeEventListener(eventName, listener, true));
       });
     };
   }, [navigate]);

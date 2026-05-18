@@ -62,6 +62,19 @@ describe('MouseHistoryNavigation', () => {
     expect(forward).toHaveBeenCalledOnce();
   });
 
+  it('treats legacy which=4 events as browser history back', () => {
+    window.history.pushState({}, '', '/problems');
+    window.history.pushState({}, '', '/problems/two-sum');
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'which', { value: 4 });
+
+    render(<MouseHistoryNavigation />);
+    document.documentElement.dispatchEvent(event);
+
+    expect(back).toHaveBeenCalledOnce();
+  });
+
   it('deduplicates mousedown and auxclick for the same side button gesture', () => {
     window.history.pushState({}, '', '/problems');
     window.history.pushState({}, '', '/problems/two-sum');
