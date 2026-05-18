@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Difficulty } from '@shared/problemTypes';
+import type { Difficulty, ProgressStatus } from '@shared/problemTypes';
 
 type ProblemRow = {
   id: number;
@@ -30,6 +30,8 @@ type ProblemRow = {
 };
 
 const PAGE_SIZES = [20, 50, 100];
+const EMPTY_FILTERS = {};
+const STATUS_FILTERS = new Set<ProgressStatus>(['todo', 'reviewing', 'done']);
 
 const COMPANIES = [
   { slug: 'google', name: 'Google', zh: '谷歌', domain: 'google.com' },
@@ -85,11 +87,24 @@ const TAG_ZH: Record<string, string> = {
   'binary-indexed-tree': '树状数组', 'game-theory': '博弈论',
 };
 
+function filtersFromLocation(location: string) {
+  const query = location.includes('?') ? location.slice(location.indexOf('?')) : window.location.search;
+  const params = new URLSearchParams(query);
+  const status = params.get('status');
+
+  return {
+    ...(status && STATUS_FILTERS.has(status as ProgressStatus)
+      ? { status: status as ProgressStatus }
+      : {}),
+  };
+}
+
 export function ProblemList() {
   const t = useT();
   const { lang } = useLang();
-  const [, navigate] = useLocation();
-  const { filters, setFilter, reset } = useFilters({ defaults: {} });
+  const [location, navigate] = useLocation();
+  const [initialFilters] = useState(() => filtersFromLocation(location));
+  const { filters, setFilter, reset } = useFilters({ defaults: EMPTY_FILTERS, initial: initialFilters });
   const search = useDebounce(filters.search as string | undefined, 300);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);

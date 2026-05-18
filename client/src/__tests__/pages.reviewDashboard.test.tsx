@@ -89,6 +89,10 @@ describe('ReviewDashboard', () => {
     expect(screen.getByText('Add Two Numbers')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
     expect(screen.getByText('Sign in to see recent submissions.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Todo\s+3/ })).toHaveAttribute(
+      'href',
+      '/problems?status=todo',
+    );
   });
 
   it('renders recent submissions when authenticated', () => {

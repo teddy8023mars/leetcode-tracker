@@ -17,7 +17,10 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 describe('ProblemList', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.pushState({}, '', '/');
+  });
   afterEach(() => cleanup());
   it('renders problems table when data is present', () => {
     (trpc.problems.list.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -113,5 +116,26 @@ describe('ProblemList', () => {
     const text = document.body.textContent || '';
     expect(text).toContain('3');
     expect(text).toContain('184');
+  });
+
+  it('initializes the status filter from the URL query', () => {
+    window.history.pushState({}, '', '/problems?status=todo');
+    (trpc.problems.list.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { items: [], nextCursor: undefined },
+      isLoading: false,
+    });
+
+    render(
+      <LangProvider>
+        <ProblemList />
+      </LangProvider>,
+    );
+
+    expect(trpc.problems.list.useQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: expect.objectContaining({ status: 'todo' }),
+      }),
+      expect.any(Object),
+    );
   });
 });
