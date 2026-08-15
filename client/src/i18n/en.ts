@@ -90,6 +90,7 @@ export const en = {
   judge: {
     tab: 'Solve',
     language: 'Language',
+    sqlNoJudge: 'SQL problems are not runnable here yet — draft your query, verify on LeetCode',
     submit: 'Submit',
     submitting: 'Running\u2026',
     loginPrompt: 'Sign in to submit your solution.',

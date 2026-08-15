@@ -11,24 +11,27 @@ interface CodeSnippet {
   code?: string;
 }
 
-type Lang = 'python' | 'java' | 'cpp';
+type Lang = 'python' | 'java' | 'cpp' | 'mysql';
 
 const LANG_LABELS: Record<Lang, string> = {
   python: 'Python',
   java: 'Java',
   cpp: 'C++',
+  mysql: 'MySQL',
 };
 
 const LANG_TO_SNIPPET: Record<Lang, string[]> = {
   python: ['python3', 'python'],
   java: ['java'],
   cpp: ['cpp'],
+  mysql: ['mysql'],
 };
 
 const MONACO_LANG: Record<Lang, string> = {
   python: 'python',
   java: 'java',
   cpp: 'cpp',
+  mysql: 'sql',
 };
 
 const STARTER: Record<Lang, string> = {
@@ -38,7 +41,11 @@ const STARTER: Record<Lang, string> = {
     `class Solution {\n    // Write your code here\n}\n`,
   cpp:
     `class Solution {\npublic:\n    // Write your code here\n};\n`,
+  mysql: `-- Write your MySQL query statement below\n`,
 };
+
+// Only these languages can be submitted to the online judge.
+type JudgeLang = 'python' | 'java' | 'cpp';
 
 function pickStarter(lang: Lang, snippets: CodeSnippet[] | null | undefined): string {
   if (!snippets || !Array.isArray(snippets)) return STARTER[lang];
@@ -55,6 +62,7 @@ export interface SolvePanelProps {
   titleSlug: string;
   codeSnippets: CodeSnippet[] | null | undefined;
   exampleTestcases?: string | null;
+  category?: string | null;
 }
 
 type Verdict =
@@ -97,7 +105,7 @@ function loadEditorSettings(): EditorSettings {
   } catch { return DEFAULT_SETTINGS; }
 }
 
-export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcases }: SolvePanelProps) {
+export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcases, category }: SolvePanelProps) {
   const t = useT();
   const { lang: uiLang } = useLang();
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
@@ -139,12 +147,14 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   }, [editorSettings.vimMode]);
 
   const codeKey = (l: Lang) => `lc.code.${titleSlug}.${l}`;
-  const [language, setLanguage] = useState<Lang>('python');
+  const defaultLang: Lang = category === 'database' ? 'mysql' : 'python';
+  const canJudge = defaultLang !== 'mysql';
+  const [language, setLanguage] = useState<Lang>(defaultLang);
   const [code, setCode] = useState<string>(() => {
-    const saved = localStorage.getItem(codeKey('python'));
-    return saved || pickStarter('python', codeSnippets);
+    const saved = localStorage.getItem(codeKey(defaultLang));
+    return saved || pickStarter(defaultLang, codeSnippets);
   });
-  const [seededLang, setSeededLang] = useState<Lang>('python');
+  const [seededLang, setSeededLang] = useState<Lang>(defaultLang);
   const [openSubmissionId, setOpenSubmissionId] = useState<number | null>(null);
 
   // Reseed code when language switches.
@@ -176,9 +186,9 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   // Ctrl+Enter to submit
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !runMut.isPending && code.trim().length > 0) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canJudge && !runMut.isPending && code.trim().length > 0) {
         e.preventDefault();
-        runMut.mutate({ problemId, language, code });
+        runMut.mutate({ problemId, language: language as JudgeLang, code });
       }
     };
     window.addEventListener('keydown', handler);
@@ -238,21 +248,25 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           >
             ↺ {t('problem.reset')}
           </button>
-          <button
-            type="button"
-            disabled={runMut.isPending || code.trim().length === 0}
-            onClick={() =>
-              runMut.mutate({
-                problemId,
-                language,
-                code,
-              })
-            }
-            className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Ctrl+Enter"
-          >
-            {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
-          </button>
+          {canJudge ? (
+            <button
+              type="button"
+              disabled={runMut.isPending || code.trim().length === 0}
+              onClick={() =>
+                runMut.mutate({
+                  problemId,
+                  language: language as JudgeLang,
+                  code,
+                })
+              }
+              className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Ctrl+Enter"
+            >
+              {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
+            </button>
+          ) : (
+            <span className="text-xs font-mono text-ink-soft">{t('judge.sqlNoJudge')}</span>
+          )}
         </div>
       </div>
 
@@ -303,6 +317,10 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
             automaticLayout: true,
             renderLineHighlight: 'line',
             lineNumbers: editorSettings.relativeLineNumbers ? 'relative' : 'on',
+            // Relative numbers are 1-2 digits; the default 5-char gutter leaves
+            // an awkward gap between the numbers and the code.
+            lineNumbersMinChars: editorSettings.relativeLineNumbers ? 2 : 5,
+            lineDecorationsWidth: editorSettings.relativeLineNumbers ? 4 : 10,
           }}
         />
         {editorSettings.vimMode && (
