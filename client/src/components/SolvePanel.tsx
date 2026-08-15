@@ -196,11 +196,13 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   const runMut = trpc.judge.run.useMutation({
     onSuccess: () => {
       utils.judge.listSubmissions.invalidate({ problemId });
+      utils.progress.invalidate();
     },
   });
   const runSqlMut = trpc.judge.runSql.useMutation({
     onSuccess: () => {
       utils.judge.listSubmissions.invalidate({ problemId });
+      utils.progress.invalidate();
     },
   });
 

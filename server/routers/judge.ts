@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 
 import { router, protectedProcedure } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, markProblemSolved } from "../db";
 import {
   problems,
   problemSolutions,
@@ -13,7 +13,7 @@ import {
 } from "../../drizzle/schema";
 
 import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
-import { judgeSql, detectSqlMode } from "../judge/sqlJudge";
+import { judgeSql, extractReferenceSql } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
 import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
 
@@ -300,6 +300,12 @@ export const judgeRouter = router({
           ? (insertRes[0] as { insertId: number }).insertId
           : 0;
 
+      if (outcome.verdict === "accepted") {
+        await markProblemSolved(userId, input.problemId).catch((e) =>
+          console.error("[judge.run] progress update failed", e),
+        );
+      }
+
       return {
         submissionId,
         verdict: outcome.verdict,
@@ -348,13 +354,12 @@ export const judgeRouter = router({
             eq(problemSolutions.source, "community"),
           ),
         );
-      const solMd =
-        sols.find((s) => s.language === "zh")?.contentMarkdown ??
-        sols[0]?.contentMarkdown ??
-        "";
-      const referenceSql = solMd.match(/```sql\s*\n([\s\S]*?)```/i)?.[1]?.trim() ?? null;
+      const referenceSql = extractReferenceSql([
+        sols.find((s) => s.language === "zh")?.contentMarkdown,
+        sols.find((s) => s.language === "en")?.contentMarkdown,
+      ]);
 
-      if (schemas.length === 0 || !referenceSql || detectSqlMode(referenceSql) === null) {
+      if (schemas.length === 0 || !referenceSql) {
         // Premium problems have no example schema; a few solutions are
         // pandas-only or data-modifying — those can't be judged locally.
         return { supported: false as const };
@@ -382,6 +387,12 @@ export const judgeRouter = router({
         },
         runtimeMs: outcome.runtimeMs,
       });
+
+      if (outcome.verdict === "accepted") {
+        await markProblemSolved(ctx.user.id, input.problemId).catch((e) =>
+          console.error("[judge.runSql] progress update failed", e),
+        );
+      }
 
       return {
         supported: true as const,

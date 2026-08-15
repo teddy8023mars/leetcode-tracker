@@ -9,6 +9,7 @@ import {
   problemLists,
   problemListItems,
   syncLogs,
+  userProgress,
   type InsertProblem,
   type Problem,
   type InsertProblemSolution,
@@ -427,4 +428,59 @@ export async function getRecentSyncLogs(limit = 50) {
     .from(syncLogs)
     .orderBy(drizzleDesc(syncLogs.startedAt))
     .limit(limit);
+}
+
+import { and as drizzleAnd } from 'drizzle-orm';
+import { sm2 } from './progress/sm2';
+
+/**
+ * Mark a problem solved after an accepted judge submission. Runs SM-2 with a
+ * default quality only on first completion; an already-done problem's review
+ * schedule is left to the explicit review flow.
+ */
+export async function markProblemSolved(userId: number, problemId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const existing = await db
+    .select()
+    .from(userProgress)
+    .where(drizzleAnd(eq(userProgress.userId, userId), eq(userProgress.problemId, problemId)))
+    .limit(1);
+  const prev = existing[0];
+  if (prev?.status === 'done') return;
+
+  const result = sm2({
+    quality: 4,
+    repetition: prev?.reviewCount ?? 0,
+    interval: prev?.reviewIntervalDays ?? 0,
+    easinessFactor: prev ? parseFloat(prev.easinessFactor) : 2.5,
+  });
+  const now = new Date();
+  const nextReviewAt = new Date(now.getTime() + result.interval * 24 * 60 * 60 * 1000);
+
+  await db
+    .insert(userProgress)
+    .values({
+      userId,
+      problemId,
+      status: 'done',
+      reviewIntervalDays: result.interval,
+      nextReviewAt,
+      reviewCount: result.repetition,
+      easinessFactor: String(result.easinessFactor),
+      lastReviewedAt: now,
+      firstCompletedAt: prev?.firstCompletedAt ?? now,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        status: 'done',
+        reviewIntervalDays: result.interval,
+        nextReviewAt,
+        reviewCount: result.repetition,
+        easinessFactor: String(result.easinessFactor),
+        lastReviewedAt: now,
+        firstCompletedAt: prev?.firstCompletedAt ?? now,
+      },
+    });
 }

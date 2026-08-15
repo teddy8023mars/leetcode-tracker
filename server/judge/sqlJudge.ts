@@ -25,7 +25,7 @@ export type SqlJudgeOutcome = {
   stderr: string;
 };
 
-export type SqlMode = 'query' | 'function' | 'modification';
+export type SqlMode = 'query' | 'function' | 'procedure' | 'modification';
 
 const JUDGE_USER = 'lc_sql_judge';
 const JUDGE_PASSWORD = 'lc_sql_judge_local';
@@ -75,9 +75,27 @@ export function stripLeadingSqlComments(sqlText: string): string {
 
 export function detectSqlMode(sqlText: string): SqlMode | null {
   const s = stripLeadingSqlComments(sqlText);
-  if (/^(select|with)\b/i.test(s)) return 'query';
+  // `(SELECT …) UNION (SELECT …)` style queries start with a parenthesis.
+  if (/^[(\s]*(select|with)\b/i.test(s)) return 'query';
   if (/^create\s+(definer\s*=\s*\S+\s+)?function\b/i.test(s)) return 'function';
+  if (/^create\s+(definer\s*=\s*\S+\s+)?procedure\b/i.test(s)) return 'procedure';
   if (/^(insert|update|delete|replace)\b/i.test(s)) return 'modification';
+  return null;
+}
+
+/**
+ * Pick the reference statement out of solution markdown: the first ```sql
+ * fence whose content is a judgeable statement (skips syntax-illustration
+ * snippets and empty placeholder blocks).
+ */
+export function extractReferenceSql(markdowns: (string | null | undefined)[]): string | null {
+  for (const md of markdowns) {
+    if (!md) continue;
+    for (const m of Array.from(md.matchAll(/```sql\s*\n([\s\S]*?)```/gi))) {
+      const candidate = m[1].trim();
+      if (candidate && detectSqlMode(candidate) !== null) return candidate;
+    }
+  }
   return null;
 }
 
@@ -121,6 +139,9 @@ async function withFreshDb<T>(
   try {
     await conn.query(`CREATE DATABASE \`${dbName}\``);
     await conn.changeUser({ database: dbName });
+    // LeetCode's own schemas rely on non-strict mode (e.g. data longer than
+    // the declared varchar) — replay them the way their judge does.
+    await conn.query("SET SESSION sql_mode = ''");
     for (const stmt of schemas) {
       if (stmt.trim()) await conn.query(stmt);
     }
@@ -143,7 +164,7 @@ async function runQueryMode(conn: Connection, sqlText: string, ordered: boolean)
 async function runFunctionMode(
   conn: Connection,
   sqlText: string,
-  probe: { name: string; argCount: number },
+  refTypes: string[],
 ): Promise<RunResult> {
   await conn.query(sqlText);
   // The user's function may have a different name than the reference —
@@ -151,26 +172,90 @@ async function runFunctionMode(
   const created = stripLeadingSqlComments(sqlText).match(
     /^create\s+(?:definer\s*=\s*\S+\s+)?function\s+`?(\w+)`?/i,
   );
-  const fnName = created?.[1] ?? probe.name;
+  if (!created) throw new Error('cannot parse CREATE FUNCTION statement');
+  const fnName = created[1];
   const rows: unknown[][] = [];
-  if (probe.argCount === 0) {
-    const [r] = await conn.query({ sql: `SELECT \`${fnName}\`()`, rowsAsArray: true, timeout: 8000 });
-    rows.push([(r as unknown[][])[0]?.[0] ?? null]);
-  } else {
-    for (const arg of FUNCTION_PROBE_ARGS) {
-      const [r] = await conn.query({
-        sql: `SELECT \`${fnName}\`(${arg})`,
-        rowsAsArray: true,
-        timeout: 8000,
-      });
-      rows.push([arg, (r as unknown[][])[0]?.[0] ?? null]);
-    }
+  const argSets: string[][] =
+    refTypes.length === 0
+      ? [[]]
+      : refTypes.length === 1 && refTypes[0].includes('int')
+        ? FUNCTION_PROBE_ARGS.map((a) => [String(a)])
+        : PROCEDURE_PROBES.int.map((_, i) =>
+            refTypes.map((t) => {
+              const probes =
+                PROCEDURE_PROBES[t] ??
+                (t.includes('char') || t.includes('text') ? PROCEDURE_PROBES.varchar : PROCEDURE_PROBES.int);
+              return probes[i];
+            }),
+          );
+  for (const args of argSets) {
+    const [r] = await conn.query({
+      sql: `SELECT \`${fnName}\`(${args.join(', ')})`,
+      rowsAsArray: true,
+      timeout: 8000,
+    });
+    rows.push([...args, (r as unknown[][])[0]?.[0] ?? null]);
   }
   return {
-    columns: probe.argCount === 0 ? ['result'] : ['arg', 'result'],
+    columns: [...refTypes.map((_, i) => `arg${i + 1}`), 'result'],
     rows,
     ordered: true,
   };
+}
+
+/** Probe values per parameter type; combo i takes the i-th value of every param. */
+const PROCEDURE_PROBES: Record<string, string[]> = {
+  date: ["'2000-01-01'", "'2022-03-08'", "'2100-12-31'"],
+  datetime: ["'2000-01-01 00:00:00'", "'2022-03-08 12:00:00'", "'2100-12-31 23:59:59'"],
+  int: ['0', '2', '1000'],
+  varchar: ["'a'", "'b'", "'c'"],
+};
+
+export function parseRoutineParams(sqlText: string): { name: string; types: string[] } | null {
+  const sig = stripLeadingSqlComments(sqlText).match(
+    /^create\s+(?:definer\s*=\s*\S+\s+)?(?:function|procedure)\s+`?(\w+)`?\s*\(([^)]*)\)/i,
+  );
+  if (!sig) return null;
+  const raw = sig[2].trim();
+  const types = raw === '' ? [] : raw.split(',').map((p) => {
+    const t = p.trim().split(/\s+/).pop() ?? '';
+    return t.replace(/\(.*\)$/, '').toLowerCase();
+  });
+  return { name: sig[1], types };
+}
+
+async function callAndCollect(conn: Connection, callSql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
+  const [res, fields] = await conn.query({ sql: callSql, rowsAsArray: true, timeout: 8000 });
+  // CALL returns [resultSetRows, OkPacket] with fields nested one level deeper.
+  const nested = Array.isArray(fields?.[0]);
+  const rows = (nested ? (res as unknown[][])[0] : res) as unknown[][];
+  const fieldDefs = (nested ? (fields as unknown as unknown[][])[0] : fields) as { name: string }[];
+  return { columns: (fieldDefs ?? []).map((f) => f.name), rows: Array.isArray(rows) ? rows : [] };
+}
+
+async function runProcedureMode(
+  conn: Connection,
+  sqlText: string,
+  refTypes: string[],
+): Promise<RunResult> {
+  await conn.query(sqlText);
+  const own = parseRoutineParams(sqlText);
+  if (!own) throw new Error('cannot parse CREATE PROCEDURE signature');
+  const comboCount = refTypes.length === 0 ? 1 : PROCEDURE_PROBES.int.length;
+  const rows: unknown[][] = [];
+  let columns: string[] = [];
+  for (let i = 0; i < comboCount; i++) {
+    const args = refTypes.map((t) => {
+      const probes =
+        PROCEDURE_PROBES[t] ?? (t.includes('char') || t.includes('text') ? PROCEDURE_PROBES.varchar : PROCEDURE_PROBES.int);
+      return probes[i];
+    });
+    const r = await callAndCollect(conn, `CALL \`${own.name}\`(${args.join(', ')})`);
+    columns = r.columns;
+    const sorted = serializeRows(r.rows, false);
+    for (const s of sorted) rows.push([i, ...(JSON.parse(s) as unknown[])]);
+  }
+  return { columns, rows, ordered: true };
 }
 
 async function runModificationMode(conn: Connection, sqlText: string): Promise<RunResult> {
@@ -213,25 +298,20 @@ export async function judgeSql(args: {
     const expectedShape = {
       query: 'a SELECT / WITH query',
       function: 'a CREATE FUNCTION statement',
+      procedure: 'a CREATE PROCEDURE statement',
       modification: 'an INSERT / UPDATE / DELETE statement',
     }[mode];
     return fail('runtime_error', `This problem expects ${expectedShape}.`);
   }
-  if (mode !== 'function' && !isSingleStatement(args.userSql)) {
+  if ((mode === 'query' || mode === 'modification') && !isSingleStatement(args.userSql)) {
     return fail('runtime_error', 'Submit a single SQL statement.');
   }
 
-  let probe: { name: string; argCount: number } = { name: '', argCount: 0 };
-  if (mode === 'function') {
-    const sig = stripLeadingSqlComments(args.referenceSql).match(
-      /^create\s+(?:definer\s*=\s*\S+\s+)?function\s+`?(\w+)`?\s*\(([^)]*)\)/i,
-    );
-    if (!sig) return fail('internal_error', 'cannot parse reference function signature');
-    const params = sig[2].trim() === '' ? [] : sig[2].split(',');
-    if (params.length > 1 || (params.length === 1 && !/\bint\b/i.test(params[0]))) {
-      return fail('internal_error', 'unsupported reference function signature');
-    }
-    probe = { name: sig[1], argCount: params.length };
+  let refTypes: string[] = [];
+  if (mode === 'function' || mode === 'procedure') {
+    const sig = parseRoutineParams(args.referenceSql);
+    if (!sig) return fail('internal_error', 'cannot parse reference routine signature');
+    refTypes = sig.types;
   }
 
   const runSide = (sqlText: string) =>
@@ -240,7 +320,8 @@ export async function judgeSql(args: {
         const ordered = /\border\s+by\b/i.test(args.referenceSql);
         return runQueryMode(conn, sqlText, ordered);
       }
-      if (mode === 'function') return runFunctionMode(conn, sqlText, probe);
+      if (mode === 'function') return runFunctionMode(conn, sqlText, refTypes);
+      if (mode === 'procedure') return runProcedureMode(conn, sqlText, refTypes);
       return runModificationMode(conn, sqlText);
     });
 
@@ -272,7 +353,7 @@ export async function judgeSql(args: {
   // Column names must match for plain queries (aliases are part of the task);
   // function/modification modes use synthetic column labels.
   const columnsMatch =
-    mode !== 'query' ||
+    (mode !== 'query' && mode !== 'procedure') ||
     (expected.columns.length === actual.columns.length &&
       expected.columns.every((c, i) => c.toLowerCase() === actual.columns[i].toLowerCase()));
   const rowsMatch =
