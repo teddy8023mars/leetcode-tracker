@@ -6,12 +6,14 @@ import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   problems,
+  problemSolutions,
   problemTestcases,
   submissions,
   type ProblemTestcase,
 } from "../../drizzle/schema";
 
 import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
+import { judgeSql, isReadQuery } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
 import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
 
@@ -308,6 +310,87 @@ export const judgeRouter = router({
         cases: outcome.cases,
         stderr: (outcome.stderr || "").slice(0, 4000),
         compileStderr: outcome.compileStderr ?? null,
+      };
+    }),
+
+  /**
+   * Judge a SQL query locally: replay the problem's example schema into a
+   * scratch database and compare the user's result set against the one
+   * produced by the imported reference solution.
+   */
+  runSql: protectedProcedure
+    .input(
+      z.object({
+        problemId: z.number().int().positive(),
+        code: z.string().min(1).max(20_000),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const problemRows = await db
+        .select()
+        .from(problems)
+        .where(eq(problems.id, input.problemId))
+        .limit(1);
+      const problem = problemRows[0];
+      if (!problem) throw new TRPCError({ code: "NOT_FOUND", message: "Problem not found" });
+
+      const schemas = (problem.mysqlSchemasJson ?? []) as string[];
+
+      const sols = await db
+        .select()
+        .from(problemSolutions)
+        .where(
+          and(
+            eq(problemSolutions.problemId, input.problemId),
+            eq(problemSolutions.source, "community"),
+          ),
+        );
+      const solMd =
+        sols.find((s) => s.language === "zh")?.contentMarkdown ??
+        sols[0]?.contentMarkdown ??
+        "";
+      const referenceSql = solMd.match(/```sql\s*\n([\s\S]*?)```/i)?.[1]?.trim() ?? null;
+
+      if (schemas.length === 0 || !referenceSql || !isReadQuery(referenceSql)) {
+        // Premium problems have no example schema; a few solutions are
+        // pandas-only or data-modifying — those can't be judged locally.
+        return { supported: false as const };
+      }
+
+      const outcome = await judgeSql({
+        schemas,
+        referenceSql,
+        userSql: input.code,
+      });
+
+      await db.insert(submissions).values({
+        userId: ctx.user.id,
+        problemId: input.problemId,
+        language: "mysql",
+        code: input.code,
+        verdict: outcome.verdict,
+        passedCount: outcome.verdict === "accepted" ? 1 : 0,
+        totalCount: 1,
+        resultJson: {
+          columns: outcome.columns,
+          expected: outcome.expected,
+          actual: outcome.actual,
+          stderr: outcome.stderr.slice(0, 4000),
+        },
+        runtimeMs: outcome.runtimeMs,
+      });
+
+      return {
+        supported: true as const,
+        verdict: outcome.verdict,
+        runtimeMs: outcome.runtimeMs,
+        columns: outcome.columns,
+        expected: outcome.expected,
+        actual: outcome.actual,
+        stderr: outcome.stderr.slice(0, 4000),
       };
     }),
 

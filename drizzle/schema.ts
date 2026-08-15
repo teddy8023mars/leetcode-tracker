@@ -68,6 +68,8 @@ export const problems = mysqlTable(
     contentZhSource: mysqlEnum("contentZhSource", ["leetcode-cn", "llm-translated"]),
     hintsJson: json("hintsJson"),
     exampleTestcases: text("exampleTestcases"),
+    /** CREATE TABLE / INSERT statements for the example case of SQL problems. */
+    mysqlSchemasJson: json("mysqlSchemasJson").$type<string[]>(),
     topicTagsJson: json("topicTagsJson"),
     similarQuestionsJson: json("similarQuestionsJson"),
     codeSnippetsJson: json("codeSnippetsJson"),
@@ -315,7 +317,7 @@ export const submissions = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull().references(() => users.id),
     problemId: int("problemId").notNull().references(() => problems.id),
-    language: mysqlEnum("language", ["python", "java", "cpp"]).notNull(),
+    language: mysqlEnum("language", ["python", "java", "cpp", "mysql"]).notNull(),
     code: longtext("code").notNull(),
     verdict: mysqlEnum("verdict", [
       "accepted",

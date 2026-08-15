@@ -198,18 +198,27 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       utils.judge.listSubmissions.invalidate({ problemId });
     },
   });
+  const runSqlMut = trpc.judge.runSql.useMutation({
+    onSuccess: () => {
+      utils.judge.listSubmissions.invalidate({ problemId });
+    },
+  });
 
   // Ctrl+Enter to submit
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canJudge && !runMut.isPending && code.trim().length > 0) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && code.trim().length > 0) {
         e.preventDefault();
-        runMut.mutate({ problemId, language: language as JudgeLang, code });
+        if (canJudge && !runMut.isPending) {
+          runMut.mutate({ problemId, language: language as JudgeLang, code });
+        } else if (!canJudge && !runSqlMut.isPending) {
+          runSqlMut.mutate({ problemId, code });
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [code, language, problemId, runMut]);
+  }, [code, language, problemId, runMut, runSqlMut, canJudge]);
 
   const submissions = trpc.judge.listSubmissions.useQuery(
     { problemId, limit: 10 },
@@ -280,19 +289,32 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
             >
               {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
             </button>
-          ) : referenceSql ? (
-            <button
-              type="button"
-              onClick={() => setShowAnswer((s) => !s)}
-              className={`px-4 py-1.5 rounded font-mono text-sm transition-colors ${
-                showAnswer
-                  ? 'bg-secondary text-ink'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
-            >
-              {showAnswer ? t('judge.hideAnswer') : t('judge.checkAnswer')}
-            </button>
-          ) : null}
+          ) : (
+            <>
+              {referenceSql && (
+                <button
+                  type="button"
+                  onClick={() => setShowAnswer((s) => !s)}
+                  className={`px-4 py-1.5 rounded font-mono text-sm border transition-colors ${
+                    showAnswer
+                      ? 'bg-secondary text-ink border-border'
+                      : 'border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950'
+                  }`}
+                >
+                  {showAnswer ? t('judge.hideAnswer') : t('judge.checkAnswer')}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={runSqlMut.isPending || code.trim().length === 0}
+                onClick={() => runSqlMut.mutate({ problemId, code })}
+                className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ctrl+Enter"
+              >
+                {runSqlMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -353,6 +375,64 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           <div ref={statusBarRef} className="px-3 py-1 text-xs font-mono bg-slate-100 dark:bg-slate-800 border-t border-border" />
         )}
       </div>
+
+      {!canJudge && runSqlMut.data && (
+        <div className="space-y-3">
+          {runSqlMut.data.supported === false ? (
+            <p className="text-sm text-ink-soft font-mono">{t('judge.sqlUnsupported')}</p>
+          ) : (
+            <>
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-mono ${VERDICT_TONE[runSqlMut.data.verdict as Verdict]}`}
+              >
+                <span className="font-semibold">
+                  {t(`judge.verdict.${runSqlMut.data.verdict}` as never)}
+                </span>
+                <span className="opacity-70">· {runSqlMut.data.runtimeMs}ms</span>
+              </div>
+              {runSqlMut.data.stderr && (
+                <pre className="p-3 text-xs font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded overflow-x-auto whitespace-pre-wrap">{runSqlMut.data.stderr}</pre>
+              )}
+              {runSqlMut.data.verdict === 'wrong_answer' && runSqlMut.data.expected && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {([
+                    [t('judge.sqlExpected'), runSqlMut.data.expected],
+                    [t('judge.sqlActual'), runSqlMut.data.actual ?? []],
+                  ] as const).map(([label, rows]) => (
+                    <div key={label} className="border border-border rounded overflow-hidden">
+                      <div className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest bg-secondary text-ink-soft border-b border-border">
+                        {label}
+                      </div>
+                      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table className="text-xs font-mono w-full">
+                          {runSqlMut.data.columns && (
+                            <thead>
+                              <tr>
+                                {runSqlMut.data.columns.map((c) => (
+                                  <th key={c} className="px-3 py-1.5 text-left border-b border-border text-ink-soft">{c}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                          )}
+                          <tbody>
+                            {rows.map((r, i) => (
+                              <tr key={i} className="odd:bg-secondary/40">
+                                {r.map((v, j) => (
+                                  <td key={j} className="px-3 py-1 whitespace-nowrap">{v}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {!canJudge && showAnswer && referenceSql && (
         <div className="border border-emerald-300 dark:border-emerald-800 rounded overflow-hidden">
@@ -729,7 +809,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
         {bottomTab === 'cases' && (
           <div className="space-y-3">
             {cases.length === 0 ? (
-              <p className="text-xs text-ink-soft font-mono">{t('empty')}</p>
+              <p className="text-xs text-ink-soft font-mono">{t('judge.noCases')}</p>
             ) : (
               <>
                 <div className="flex gap-1">

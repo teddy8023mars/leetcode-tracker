@@ -27,6 +27,7 @@ CREATE TABLE problems (
   contentZhSource TEXT,
   hintsJson TEXT,
   exampleTestcases TEXT,
+  mysqlSchemasJson TEXT,
   topicTagsJson TEXT,
   similarQuestionsJson TEXT,
   codeSnippetsJson TEXT,
