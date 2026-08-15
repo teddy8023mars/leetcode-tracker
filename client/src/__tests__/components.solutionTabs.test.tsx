@@ -3,11 +3,16 @@ import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SolutionTabs } from '@/components/SolutionTabs';
 import { LangProvider } from '@/contexts/LangContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);
 
 function wrap(ui: React.ReactNode) {
-  return render(<LangProvider>{ui}</LangProvider>);
+  return render(
+    <ThemeProvider>
+      <LangProvider>{ui}</LangProvider>
+    </ThemeProvider>,
+  );
 }
 
 describe('SolutionTabs', () => {

@@ -9,7 +9,7 @@ describe('sync/leetcode/fetchListProblems', () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({
+        text: async () => JSON.stringify({
           data: {
             studyPlanV2Detail: {
               name: 'Hot 100',
@@ -46,7 +46,7 @@ describe('sync/leetcode/fetchListProblems', () => {
   });
 
   it('retries on 5xx then throws after 3 attempts', async () => {
-    const calls = vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) }));
+    const calls = vi.fn(async () => ({ ok: false, status: 503 }));
     __setFetchForTest(calls as unknown as typeof globalThis.fetch);
     await expect(fetchListProblems('top-100-liked-questions')).rejects.toThrow(/RetryExhausted|503/);
     expect(calls).toHaveBeenCalledTimes(3);

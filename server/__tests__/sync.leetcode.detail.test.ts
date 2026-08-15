@@ -14,7 +14,7 @@ describe('sync/leetcode/detail', () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({
+        text: async () => JSON.stringify({
           data: {
             question: {
               content: '<p>Sample</p>',
@@ -39,7 +39,7 @@ describe('sync/leetcode/detail', () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ data: { question: null } }),
+        text: async () => JSON.stringify({ data: { question: null } }),
       })) as unknown as typeof globalThis.fetch,
     );
     expect(await fetchQuestionDetailEn('private-problem')).toBeNull();
@@ -53,7 +53,7 @@ describe('sync/leetcode/detail', () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({
+          text: async () => JSON.stringify({
             data: { question: { translatedTitle: '两数之和', translatedContent: '<p>样例</p>' } },
           }),
         };
@@ -70,7 +70,7 @@ describe('sync/leetcode/detail', () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ data: { solutionArticle: { content: '官方题解正文' } } }),
+        text: async () => JSON.stringify({ data: { solutionArticle: { content: '官方题解正文' } } }),
       })) as unknown as typeof globalThis.fetch,
     );
     const md = await fetchOfficialSolutionZh('two-sum');

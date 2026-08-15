@@ -14,7 +14,7 @@ describe('sync/probeLeetcodeCn', () => {
           : ({
               ok: true,
               status: 200,
-              json: async () => ({ data: { question: { translatedTitle: 'x' } } }),
+              text: async () => JSON.stringify({ data: { question: { translatedTitle: 'x' } } }),
             } as unknown as Response);
       }) as unknown as typeof globalThis.fetch,
     );
@@ -31,7 +31,7 @@ describe('sync/probeLeetcodeCn', () => {
           ? ({
               ok: true,
               status: 200,
-              json: async () => ({ data: { question: { translatedTitle: 'x' } } }),
+              text: async () => JSON.stringify({ data: { question: { translatedTitle: 'x' } } }),
             } as unknown as Response)
           : ({ ok: false, status: 503 } as unknown as Response);
       }) as unknown as typeof globalThis.fetch,
