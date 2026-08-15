@@ -21,6 +21,7 @@ export const zh: Dict = {
     all: '全部',
   },
   difficulty: { Easy: '简单', Medium: '中等', Hard: '困难' },
+  category: { algorithms: '算法', database: '数据库' },
   status: { todo: '待做', reviewing: '复习中', done: '已完成' },
   problem: {
     description: '题目描述',

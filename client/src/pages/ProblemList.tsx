@@ -103,9 +103,12 @@ export function ProblemList() {
     setPage(1);
   };
 
+  const category = (filters.category as 'algorithms' | 'database' | 'all' | undefined) ?? 'algorithms';
+
   const query = trpc.problems.list.useQuery(
     {
       filters: {
+        category: category === 'all' ? undefined : category,
         difficulty: filters.difficulty as Difficulty | undefined,
         search,
         paidOnly:
@@ -154,7 +157,8 @@ export function ProblemList() {
     else cmp = a.frontendId - b.frontendId;
     return sortDir === 'desc' ? -cmp : cmp;
   }) : filteredItems;
-  const total = allItems.length;
+  const serverTotal = typeof query.data?.total === 'number' ? query.data.total : undefined;
+  const displayTotal = tagFilter ? allItems.length : serverTotal ?? allItems.length;
   const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const items = allItems.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -162,6 +166,25 @@ export function ProblemList() {
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-extrabold tracking-tight">{t('problemList.title')}</h1>
+
+      <div className="flex items-center gap-1 border-b border-border">
+        {(['algorithms', 'database', 'all'] as const).map((c) => (
+          <button
+            key={c}
+            onClick={() => {
+              setFilter('category', c === 'algorithms' ? undefined : c);
+              setPage(1);
+            }}
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              category === c
+                ? 'border-primary text-primary'
+                : 'border-transparent text-ink-soft hover:text-ink'
+            }`}
+          >
+            {c === 'all' ? t('filter.all') : t(`category.${c}`)}
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[14rem_1fr] gap-6">
         <aside className="space-y-4">
@@ -291,7 +314,7 @@ export function ProblemList() {
               className="font-mono max-w-md"
             />
             <span className="text-xs text-ink-soft font-mono whitespace-nowrap">
-              {t('problemList.showing', { shown: `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, allItems.length)}`, total: allItems.length })}
+              {t('problemList.showing', { shown: `${allItems.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, allItems.length)}`, total: displayTotal })}
             </span>
           </div>
 

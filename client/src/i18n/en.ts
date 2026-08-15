@@ -20,6 +20,7 @@ export const en = {
     all: 'All',
   },
   difficulty: { Easy: 'Easy', Medium: 'Medium', Hard: 'Hard' },
+  category: { algorithms: 'Algorithms', database: 'Database' },
   status: { todo: 'Todo', reviewing: 'Reviewing', done: 'Done' },
   problem: {
     description: 'Description',

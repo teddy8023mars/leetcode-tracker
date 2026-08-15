@@ -3,9 +3,10 @@ import { eq } from 'drizzle-orm';
 import { router, publicProcedure } from '../_core/trpc';
 import { listProblemsQuery, getProblemBySlug, getDb, getCompanyTagsForProblem } from '../db';
 import { problemSolutions } from '../../drizzle/schema';
-import { DifficultySchema, ProgressStatusSchema } from '@shared/problemTypes';
+import { CategorySchema, DifficultySchema, ProgressStatusSchema } from '@shared/problemTypes';
 
 const FiltersSchema = z.object({
+  category: CategorySchema.optional(),
   difficulty: DifficultySchema.optional(),
   listSlug: z.string().optional(),
   companySlug: z.string().optional(),

@@ -110,9 +110,10 @@ export async function getUserByOpenId(openId: string) {
 // Problem list query (M1)
 // ---------------------------------------------------------------------------
 
-import type { Difficulty, ProgressStatus } from '../shared/problemTypes';
+import type { Category, Difficulty, ProgressStatus } from '../shared/problemTypes';
 
 export type ListFilters = {
+  category?: Category;
   difficulty?: Difficulty;
   listSlug?: string;
   companySlug?: string;
@@ -148,6 +149,10 @@ export function buildListSql(args: ListArgs): { sql: string; params: (string | n
     joins.push('LEFT JOIN problemLists ON problemLists.id = problemListItems.listId');
     wheres.push('problemLists.slug = ?');
     params.push(filters.listSlug);
+  }
+  if (filters.category) {
+    wheres.push('problems.category = ?');
+    params.push(filters.category);
   }
   if (filters.difficulty) {
     wheres.push('problems.difficulty = ?');
@@ -200,6 +205,7 @@ export async function upsertProblem(p: InsertProblem): Promise<void> {
       difficulty: p.difficulty,
       paidOnly: p.paidOnly,
       acRate: p.acRate,
+      ...(p.category !== undefined ? { category: p.category } : {}),
       ...(p.contentEn !== undefined ? { contentEn: p.contentEn } : {}),
       ...(p.contentZh !== undefined ? { contentZh: p.contentZh } : {}),
       ...(p.contentZhSource !== undefined ? { contentZhSource: p.contentZhSource } : {}),
@@ -303,6 +309,9 @@ export async function listProblemsQuery(args: ListArgs) {
       sql` LEFT JOIN problemListItems ON problemListItems.problemId = problems.id LEFT JOIN problemLists ON problemLists.id = problemListItems.listId`,
     );
     wheres.push(sql` AND problemLists.slug = ${filters.listSlug}`);
+  }
+  if (filters.category) {
+    wheres.push(sql` AND problems.category = ${filters.category}`);
   }
   if (filters.difficulty) {
     wheres.push(sql` AND problems.difficulty = ${filters.difficulty}`);

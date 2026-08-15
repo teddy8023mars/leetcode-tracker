@@ -50,6 +50,16 @@ export const problems = mysqlTable(
     titleSlug: varchar("titleSlug", { length: 255 }).notNull().unique(),
     titleEn: varchar("titleEn", { length: 500 }),
     titleZh: varchar("titleZh", { length: 500 }),
+    category: mysqlEnum("category", [
+      "algorithms",
+      "database",
+      "shell",
+      "concurrency",
+      "javascript",
+      "pandas",
+    ])
+      .notNull()
+      .default("algorithms"),
     difficulty: mysqlEnum("difficulty", ["Easy", "Medium", "Hard"]).notNull(),
     paidOnly: boolean("paidOnly").default(false).notNull(),
     acRate: decimal("acRate", { precision: 5, scale: 2 }),
@@ -83,7 +93,7 @@ export const problemSolutions = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     problemId: int("problemId").notNull().references(() => problems.id),
-    source: mysqlEnum("source", ["leetcode-cn-official", "leetcode-en-official"]).notNull(),
+    source: mysqlEnum("source", ["leetcode-cn-official", "leetcode-en-official", "community"]).notNull(),
     language: mysqlEnum("language", ["en", "zh"]).notNull(),
     contentMarkdown: longtext("contentMarkdown").notNull(),
     fetchedAt: timestamp("fetchedAt").defaultNow().notNull(),

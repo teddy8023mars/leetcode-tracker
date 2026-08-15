@@ -4,6 +4,17 @@ export const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const;
 export const DifficultySchema = z.enum(DIFFICULTIES);
 export type Difficulty = z.infer<typeof DifficultySchema>;
 
+export const CATEGORIES = [
+  'algorithms',
+  'database',
+  'shell',
+  'concurrency',
+  'javascript',
+  'pandas',
+] as const;
+export const CategorySchema = z.enum(CATEGORIES);
+export type Category = z.infer<typeof CategorySchema>;
+
 export const SYNC_TYPES = [
   'initial-bootstrap',
   'daily-sync-lists',

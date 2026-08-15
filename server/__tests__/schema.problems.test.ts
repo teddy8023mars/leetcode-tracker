@@ -7,7 +7,7 @@ describe('schema/problems', () => {
     const cfg = getTableConfig(problems);
     const names = cfg.columns.map(c => c.name).sort();
     expect(names).toEqual([
-      'acRate','codeSnippetsJson','contentEn','contentFetchedAt','contentZh','contentZhSource',
+      'acRate','category','codeSnippetsJson','contentEn','contentFetchedAt','contentZh','contentZhSource',
       'createdAt','difficulty','exampleTestcases','frontendId','hintsJson',
       'id','metaUpdatedAt','paidOnly','similarQuestionsJson',
       'titleEn','titleSlug','titleZh','topicTagsJson',

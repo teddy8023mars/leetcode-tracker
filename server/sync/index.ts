@@ -58,6 +58,7 @@ async function taskInitialBootstrap() {
     { slug: 'dynamic-programming', titleEn: 'Dynamic Programming', titleZh: '动态规划' },
     { slug: 'amazon-spring-23-high-frequency', titleEn: 'Amazon High Frequency', titleZh: 'Amazon 高频题' },
     { slug: 'google-spring-23-high-frequency', titleEn: 'Google High Frequency', titleZh: 'Google 高频题' },
+    { slug: 'top-sql-50', titleEn: 'SQL 50', titleZh: 'SQL 50' },
   ];
   const skipCn = process.env.BOOTSTRAP_SKIP_CN === '1';
   const skipLlm = process.env.BOOTSTRAP_SKIP_LLM === '1';

@@ -18,6 +18,7 @@ CREATE TABLE problems (
   titleSlug TEXT UNIQUE NOT NULL,
   titleEn TEXT,
   titleZh TEXT,
+  category TEXT NOT NULL DEFAULT 'algorithms',
   difficulty TEXT NOT NULL,
   paidOnly INTEGER DEFAULT 0,
   acRate REAL,
