@@ -13,7 +13,7 @@ import {
 } from "../../drizzle/schema";
 
 import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
-import { judgeSql, isReadQuery } from "../judge/sqlJudge";
+import { judgeSql, detectSqlMode } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
 import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
 
@@ -354,7 +354,7 @@ export const judgeRouter = router({
         "";
       const referenceSql = solMd.match(/```sql\s*\n([\s\S]*?)```/i)?.[1]?.trim() ?? null;
 
-      if (schemas.length === 0 || !referenceSql || !isReadQuery(referenceSql)) {
+      if (schemas.length === 0 || !referenceSql || detectSqlMode(referenceSql) === null) {
         // Premium problems have no example schema; a few solutions are
         // pandas-only or data-modifying — those can't be judged locally.
         return { supported: false as const };
