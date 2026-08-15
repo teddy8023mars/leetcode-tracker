@@ -149,6 +149,22 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   const codeKey = (l: Lang) => `lc.code.${titleSlug}.${l}`;
   const defaultLang: Lang = category === 'database' ? 'mysql' : 'python';
   const canJudge = defaultLang !== 'mysql';
+
+  // SQL problems can't run in the sandbox, but we have reference answers —
+  // let the user check their query against the solution's SQL in place.
+  const [showAnswer, setShowAnswer] = useState(false);
+  const solutionsQ = trpc.problems.solutions.useQuery(
+    { problemId },
+    { enabled: !canJudge, staleTime: 5 * 60_000 },
+  );
+  const referenceSql = useMemo(() => {
+    const sols = solutionsQ.data ?? [];
+    const preferred =
+      sols.find((s) => s.language === (uiLang === 'zh' ? 'zh' : 'en')) ?? sols[0];
+    const md = preferred?.contentMarkdown ?? '';
+    const blocks = Array.from(md.matchAll(/```sql\s*\n([\s\S]*?)```/gi), (m) => m[1].trim());
+    return blocks.length > 0 ? blocks : null;
+  }, [solutionsQ.data, uiLang]);
   const [language, setLanguage] = useState<Lang>(defaultLang);
   const [code, setCode] = useState<string>(() => {
     const saved = localStorage.getItem(codeKey(defaultLang));
@@ -264,9 +280,19 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
             >
               {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
             </button>
-          ) : (
-            <span className="text-xs font-mono text-ink-soft">{t('judge.sqlNoJudge')}</span>
-          )}
+          ) : referenceSql ? (
+            <button
+              type="button"
+              onClick={() => setShowAnswer((s) => !s)}
+              className={`px-4 py-1.5 rounded font-mono text-sm transition-colors ${
+                showAnswer
+                  ? 'bg-secondary text-ink'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
+              {showAnswer ? t('judge.hideAnswer') : t('judge.checkAnswer')}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -327,6 +353,26 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
           <div ref={statusBarRef} className="px-3 py-1 text-xs font-mono bg-slate-100 dark:bg-slate-800 border-t border-border" />
         )}
       </div>
+
+      {!canJudge && showAnswer && referenceSql && (
+        <div className="border border-emerald-300 dark:border-emerald-800 rounded overflow-hidden">
+          <div className="px-4 py-2 text-xs font-mono uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 border-b border-emerald-300 dark:border-emerald-800">
+            {t('judge.referenceAnswer')}
+          </div>
+          <div className="divide-y divide-border bg-white/70 dark:bg-slate-900/70">
+            {referenceSql.map((sqlText, i) => (
+              <div key={i}>
+                {referenceSql.length > 1 && (
+                  <div className="px-4 pt-3 text-xs font-mono text-ink-soft">
+                    {t('judge.approach')} {i + 1}
+                  </div>
+                )}
+                <pre className="p-4 text-sm font-mono overflow-x-auto whitespace-pre">{sqlText}</pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <BottomPanel

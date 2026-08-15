@@ -91,7 +91,10 @@ export const zh: Dict = {
   judge: {
     tab: '在线判题',
     language: '语言',
-    sqlNoJudge: 'SQL 题暂不支持在线判题——可在此起草查询,到 LeetCode 验证',
+    checkAnswer: '对答案',
+    hideAnswer: '收起答案',
+    referenceAnswer: '参考答案',
+    approach: '方法',
     submit: '提交',
     submitting: '运行中…',
     loginPrompt: '登录后才能提交代码。',
