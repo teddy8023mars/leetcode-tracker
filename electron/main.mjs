@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -22,6 +22,18 @@ const ENV_DEFAULTS = {
 
 const PREFERRED_PORT = 3900;
 
+// --- single instance: focus the existing window instead of a second process
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
 function applyEnv() {
   for (const [k, v] of Object.entries(ENV_DEFAULTS)) {
     if (!process.env[k]) process.env[k] = v;
@@ -39,16 +51,124 @@ function applyEnv() {
   }
 }
 
+// --- window state persistence
+function windowStatePath() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function loadWindowState() {
+  try {
+    return JSON.parse(fs.readFileSync(windowStatePath(), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function trackWindowState(win) {
+  let timer = null;
+  const save = () => {
+    if (win.isDestroyed()) return;
+    const state = { ...win.getBounds(), maximized: win.isMaximized() };
+    fs.writeFile(windowStatePath(), JSON.stringify(state), () => {});
+  };
+  const debounced = () => {
+    clearTimeout(timer);
+    timer = setTimeout(save, 400);
+  };
+  win.on('resize', debounced);
+  win.on('move', debounced);
+  win.on('close', save);
+}
+
+// --- application menu (roles give standard behavior: ⌘C/⌘V, ⌘W, ⌘Q, zoom…)
+function buildMenu() {
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about', label: '关于 LeetCode Tracker' },
+        { type: 'separator' },
+        { role: 'hide', label: '隐藏' },
+        { role: 'hideOthers', label: '隐藏其他' },
+        { role: 'unhide', label: '全部显示' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出 LeetCode Tracker' },
+      ],
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '拷贝' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
+    },
+    {
+      label: '显示',
+      submenu: [
+        { role: 'reload', label: '刷新' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: '实际大小' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: '进入/退出全屏' },
+      ],
+    },
+    {
+      label: '窗口',
+      submenu: [
+        { role: 'minimize', label: '最小化' },
+        { role: 'zoom', label: '缩放' },
+        { role: 'close', label: '关闭窗口' },
+        { type: 'separator' },
+        { role: 'front', label: '前置全部窗口' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+// --- right-click context menu (copy/paste in inputs, copy for selections)
+function attachContextMenu(win) {
+  win.webContents.on('context-menu', (_event, params) => {
+    const items = [];
+    if (params.isEditable) {
+      items.push(
+        { role: 'undo', label: '撤销', enabled: params.editFlags.canUndo },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切', enabled: params.editFlags.canCut },
+        { role: 'copy', label: '拷贝', enabled: params.editFlags.canCopy },
+        { role: 'paste', label: '粘贴', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll', label: '全选' },
+      );
+    } else if (params.selectionText.trim()) {
+      items.push({ role: 'copy', label: '拷贝' });
+    }
+    if (items.length) Menu.buildFromTemplate(items).popup();
+  });
+}
+
 async function createWindow(port) {
+  const saved = loadWindowState();
   const win = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    width: saved?.width ?? 1440,
+    height: saved?.height ?? 920,
+    x: saved?.x,
+    y: saved?.y,
     minWidth: 900,
     minHeight: 600,
     title: 'LeetCode Tracker',
-    titleBarStyle: 'hiddenInset',
     webPreferences: { contextIsolation: true },
   });
+  if (saved?.maximized) win.maximize();
+  trackWindowState(win);
+  attachContextMenu(win);
   // External links open in the system browser, not inside the app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -61,6 +181,12 @@ async function createWindow(port) {
 let serverPort = null;
 
 app.whenReady().then(async () => {
+  app.setAboutPanelOptions({
+    applicationName: 'LeetCode Tracker',
+    applicationVersion: app.getVersion(),
+    copyright: '本地刷题应用 — 数据存储于本机 MySQL',
+  });
+  buildMenu();
   applyEnv();
   try {
     const { startServer } = await import('./server.mjs');
