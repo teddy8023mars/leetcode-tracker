@@ -1,0 +1,16 @@
+appId: dev.teddy.leetcode-tracker
+productName: LeetCode Tracker
+directories:
+  output: release
+files:
+  - dist-electron/**
+  - dist/public/**
+  - package.json
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: dir
+      arch: [arm64]
+  category: public.app-category.developer-tools
+  identity: null

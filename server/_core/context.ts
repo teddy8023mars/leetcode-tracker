@@ -11,7 +11,8 @@ export type TrpcContext = {
 };
 
 async function getLocalDevUser(): Promise<User | null> {
-  if (ENV.isProduction || ENV.oAuthServerUrl) return null;
+  if (ENV.oAuthServerUrl) return null;
+  if (ENV.isProduction && !ENV.isLocalDesktop) return null;
   return (await getUserByOpenId("local-dev")) ?? null;
 }
 
