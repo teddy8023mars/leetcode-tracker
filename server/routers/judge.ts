@@ -13,7 +13,7 @@ import {
 } from "../../drizzle/schema";
 
 import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
-import { judgeSql, extractReferenceSql } from "../judge/sqlJudge";
+import { judgeSqlCases, extractReferenceSql, nonInsertStatements } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
 import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
 
@@ -365,30 +365,39 @@ export const judgeRouter = router({
         return { supported: false as const };
       }
 
-      const outcome = await judgeSql({
-        schemas,
+      // Example dataset first, then every extra LLM-generated dataset (which
+      // stores INSERTs only — recombine with the example's CREATE/TRUNCATE).
+      const creates = nonInsertStatements(schemas);
+      const extraDatasets = (problem.sqlJudgeDataJson ?? []) as string[][];
+      const cases = [schemas, ...extraDatasets.map((inserts) => [...creates, ...inserts])];
+
+      const result = await judgeSqlCases({
+        cases,
         referenceSql,
         userSql: input.code,
       });
+      const outcome = result.outcome;
 
       await db.insert(submissions).values({
         userId: ctx.user.id,
         problemId: input.problemId,
         language: "mysql",
         code: input.code,
-        verdict: outcome.verdict,
-        passedCount: outcome.verdict === "accepted" ? 1 : 0,
-        totalCount: 1,
+        verdict: result.verdict,
+        passedCount: result.passedCount,
+        totalCount: result.totalCount,
         resultJson: {
           columns: outcome.columns,
           expected: outcome.expected,
           actual: outcome.actual,
           stderr: outcome.stderr.slice(0, 4000),
+          failedCaseIndex: result.failedCaseIndex,
+          failedCaseSchemas: result.failedCaseSchemas,
         },
-        runtimeMs: outcome.runtimeMs,
+        runtimeMs: result.runtimeMs,
       });
 
-      if (outcome.verdict === "accepted") {
+      if (result.verdict === "accepted") {
         await markProblemSolved(ctx.user.id, input.problemId).catch((e) =>
           console.error("[judge.runSql] progress update failed", e),
         );
@@ -396,8 +405,12 @@ export const judgeRouter = router({
 
       return {
         supported: true as const,
-        verdict: outcome.verdict,
-        runtimeMs: outcome.runtimeMs,
+        verdict: result.verdict,
+        runtimeMs: result.runtimeMs,
+        passedCount: result.passedCount,
+        totalCount: result.totalCount,
+        failedCaseIndex: result.failedCaseIndex,
+        failedCaseSchemas: result.failedCaseSchemas,
         columns: outcome.columns,
         expected: outcome.expected,
         actual: outcome.actual,

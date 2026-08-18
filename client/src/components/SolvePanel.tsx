@@ -920,6 +920,10 @@ type SqlRunData =
       supported: true;
       verdict: string;
       runtimeMs: number;
+      passedCount?: number;
+      totalCount?: number;
+      failedCaseIndex?: number | null;
+      failedCaseSchemas?: string[] | null;
       columns: string[] | null;
       expected: string[][] | null;
       actual: string[][] | null;
@@ -960,7 +964,7 @@ function SqlBottomPanel({ schemas, run, t }: {
           {'>'} {t('judge.testResult')}
           {ok && (
             <span className={`ml-1.5 ${ok.verdict === 'accepted' ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {ok.verdict === 'accepted' ? '1/1' : '0/1'}
+              {ok.passedCount ?? (ok.verdict === 'accepted' ? 1 : 0)}/{ok.totalCount ?? 1}
             </span>
           )}
         </button>
@@ -1006,10 +1010,23 @@ function SqlBottomPanel({ schemas, run, t }: {
                   className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-mono ${VERDICT_TONE[ok.verdict as Verdict]}`}
                 >
                   <span className="font-semibold">{t(`judge.verdict.${ok.verdict}` as never)}</span>
+                  <span className="opacity-70">
+                    {ok.passedCount ?? (ok.verdict === 'accepted' ? 1 : 0)}/{ok.totalCount ?? 1}
+                  </span>
                   <span className="opacity-70">· {ok.runtimeMs}ms</span>
                 </div>
                 {ok.stderr && (
                   <pre className="p-3 text-xs font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded overflow-x-auto whitespace-pre-wrap">{ok.stderr}</pre>
+                )}
+                {ok.verdict !== 'accepted' && typeof ok.failedCaseIndex === 'number' && ok.failedCaseSchemas && (
+                  <div className="space-y-2">
+                    <h4 className="font-mono text-xs uppercase tracking-widest text-ink-soft">
+                      {t('judge.failingCase')} · {t('judge.case')} {ok.failedCaseIndex + 1} — {t('judge.input')}
+                    </h4>
+                    {parseSqlSchemas(ok.failedCaseSchemas).map((table) => (
+                      <SqlResultTable key={table.name} label={table.name} columns={table.columns} rows={table.rows} />
+                    ))}
+                  </div>
                 )}
                 {ok.verdict === 'wrong_answer' && ok.expected ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

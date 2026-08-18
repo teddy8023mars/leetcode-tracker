@@ -370,3 +370,65 @@ export async function judgeSql(args: {
       : `expected columns [${expected.columns.join(', ')}], got [${actual.columns.join(', ')}]`,
   };
 }
+
+/** Schema statements minus the example INSERTs (CREATE TABLE / TRUNCATE). */
+export function nonInsertStatements(schemas: string[]): string[] {
+  return schemas.filter((s) => !/^\s*insert\s/i.test(s));
+}
+
+export type SqlCasesResult = {
+  verdict: SqlJudgeOutcome['verdict'];
+  passedCount: number;
+  totalCount: number;
+  /** 0-based index of the first failing case, or null when accepted. */
+  failedCaseIndex: number | null;
+  /** Statements of the failing case (for display); null when accepted. */
+  failedCaseSchemas: string[] | null;
+  /** Outcome of the failing case, or of the first (example) case when accepted. */
+  outcome: SqlJudgeOutcome;
+  runtimeMs: number;
+};
+
+/**
+ * Judge the user SQL against every dataset in order, stopping at the first
+ * failure — LeetCode-style. `cases[0]` is expected to be the example dataset.
+ */
+export async function judgeSqlCases(args: {
+  cases: string[][];
+  referenceSql: string;
+  userSql: string;
+  judge?: typeof judgeSql;
+}): Promise<SqlCasesResult> {
+  const judge = args.judge ?? judgeSql;
+  let first: SqlJudgeOutcome | null = null;
+  let runtimeMs = 0;
+  for (let i = 0; i < args.cases.length; i++) {
+    const outcome = await judge({
+      schemas: args.cases[i],
+      referenceSql: args.referenceSql,
+      userSql: args.userSql,
+    });
+    runtimeMs += outcome.runtimeMs;
+    if (i === 0) first = outcome;
+    if (outcome.verdict !== 'accepted') {
+      return {
+        verdict: outcome.verdict,
+        passedCount: i,
+        totalCount: args.cases.length,
+        failedCaseIndex: i,
+        failedCaseSchemas: args.cases[i],
+        outcome,
+        runtimeMs,
+      };
+    }
+  }
+  return {
+    verdict: 'accepted',
+    passedCount: args.cases.length,
+    totalCount: args.cases.length,
+    failedCaseIndex: null,
+    failedCaseSchemas: null,
+    outcome: first!,
+    runtimeMs,
+  };
+}

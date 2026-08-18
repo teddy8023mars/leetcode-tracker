@@ -73,6 +73,8 @@ export const problems = mysqlTable(
     topicTagsJson: json("topicTagsJson"),
     /** App-generated SQL topic tags for database problems; never touched by LeetCode sync. */
     sqlTagsJson: json("sqlTagsJson").$type<{ name: string; slug: string }[]>(),
+    /** Extra judge datasets for SQL problems: arrays of INSERT statements (LLM-generated, validated). */
+    sqlJudgeDataJson: json("sqlJudgeDataJson").$type<string[][]>(),
     similarQuestionsJson: json("similarQuestionsJson"),
     codeSnippetsJson: json("codeSnippetsJson"),
     contentFetchedAt: timestamp("contentFetchedAt"),

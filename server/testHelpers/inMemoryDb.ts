@@ -30,6 +30,7 @@ CREATE TABLE problems (
   mysqlSchemasJson TEXT,
   topicTagsJson TEXT,
   sqlTagsJson TEXT,
+  sqlJudgeDataJson TEXT,
   similarQuestionsJson TEXT,
   codeSnippetsJson TEXT,
   contentFetchedAt TEXT,

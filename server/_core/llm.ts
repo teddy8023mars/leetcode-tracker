@@ -56,6 +56,8 @@ export type ToolChoice =
   | ToolChoiceExplicit;
 
 export type InvokeParams = {
+  /** Override the default model (e.g. "gpt-4o" for routers without Anthropic access). */
+  model?: string;
   messages: Message[];
   tools?: Tool[];
   toolChoice?: ToolChoice;
@@ -280,7 +282,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "claude-sonnet-4-6",
+    model: params.model ?? "claude-sonnet-4-6",
     messages: messages.map(normalizeMessage),
   };
 
