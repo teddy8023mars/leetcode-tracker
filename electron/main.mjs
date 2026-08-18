@@ -189,7 +189,13 @@ app.whenReady().then(async () => {
   buildMenu();
   applyEnv();
   try {
-    const { startServer } = await import('./server.mjs');
+    const { startServer, ensureSeeded } = await import('./server.mjs');
+    // First run on a fresh machine: create the database and import the
+    // bundled content snapshot so the app works without a manual sync.
+    await ensureSeeded({
+      databaseUrl: process.env.DATABASE_URL,
+      seedPath: path.join(process.resourcesPath, 'seed.sql.gz'),
+    });
     serverPort = await startServer({
       staticDir: path.join(app.getAppPath(), 'dist', 'public'),
       preferredPort: PREFERRED_PORT,

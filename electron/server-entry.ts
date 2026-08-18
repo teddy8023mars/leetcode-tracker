@@ -10,6 +10,8 @@ import { appRouter } from '../server/routers';
 import { createContext } from '../server/_core/context';
 import { createScheduledRouter } from '../server/scheduled';
 
+export { ensureSeeded } from '../server/_core/seedImport';
+
 /**
  * Production-only server entry for the desktop app. Mirrors
  * server/_core/index.ts minus the Vite dev-middleware import, so the whole

@@ -6,6 +6,9 @@ files:
   - dist-electron/**
   - dist/public/**
   - package.json
+extraResources:
+  - from: electron/seed.sql.gz
+    to: seed.sql.gz
 mac:
   icon: electron/icon.icns
   target:
