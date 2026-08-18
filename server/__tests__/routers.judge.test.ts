@@ -58,6 +58,17 @@ describe('routers/judge', () => {
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
+  it('listRecent rejects unauthenticated calls (UNAUTHORIZED)', async () => {
+    const caller = judgeRouter.createCaller({
+      user: null,
+      req: {} as Request,
+      res: {} as Response,
+    });
+    await expect(
+      caller.listRecent({ limit: 8 }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
   it('listSubmissions returns empty array when db unavailable', async () => {
     vi.spyOn(db, 'getDb').mockResolvedValue(null);
     const caller = judgeRouter.createCaller({
@@ -66,6 +77,17 @@ describe('routers/judge', () => {
       res: {} as Response,
     });
     const result = await caller.listSubmissions({ problemId: 1 });
+    expect(result).toEqual([]);
+  });
+
+  it('listRecent returns empty array when db unavailable', async () => {
+    vi.spyOn(db, 'getDb').mockResolvedValue(null);
+    const caller = judgeRouter.createCaller({
+      user: mockUser,
+      req: {} as Request,
+      res: {} as Response,
+    });
+    const result = await caller.listRecent({ limit: 8 });
     expect(result).toEqual([]);
   });
 });

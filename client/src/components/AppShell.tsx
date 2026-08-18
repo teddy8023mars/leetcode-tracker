@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { ReactNode } from 'react';
 
 const NAV = [
+  { href: '/review', key: 'nav.review' },
   { href: '/problems', key: 'nav.problems' },
   { href: '/sync', key: 'nav.sync' },
   { href: '/settings', key: 'nav.settings' },
