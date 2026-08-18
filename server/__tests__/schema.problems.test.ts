@@ -9,7 +9,7 @@ describe('schema/problems', () => {
     expect(names).toEqual([
       'acRate','category','codeSnippetsJson','contentEn','contentFetchedAt','contentZh','contentZhSource',
       'createdAt','difficulty','exampleTestcases','frontendId','hintsJson',
-      'id','metaUpdatedAt','mysqlSchemasJson','paidOnly','similarQuestionsJson',
+      'id','metaUpdatedAt','mysqlSchemasJson','paidOnly','similarQuestionsJson','sqlTagsJson',
       'titleEn','titleSlug','titleZh','topicTagsJson',
     ].sort());
   });

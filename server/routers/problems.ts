@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { router, publicProcedure } from '../_core/trpc';
-import { listProblemsQuery, getProblemBySlug, getDb, getCompanyTagsForProblem } from '../db';
+import { listProblemsQuery, getProblemBySlug, getProblemNeighbors, getDb, getCompanyTagsForProblem } from '../db';
 import { problemSolutions } from '../../drizzle/schema';
 import { CategorySchema, DifficultySchema, ProgressStatusSchema } from '@shared/problemTypes';
 
@@ -36,6 +36,11 @@ export const problemsRouter = router({
     .input(z.object({ titleSlug: z.string().min(1) }))
     .query(async ({ input }) => {
       return await getProblemBySlug(input.titleSlug);
+    }),
+  neighbors: publicProcedure
+    .input(z.object({ titleSlug: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return await getProblemNeighbors(input.titleSlug);
     }),
   solutions: publicProcedure
     .input(z.object({ problemId: z.number().int().positive() }))

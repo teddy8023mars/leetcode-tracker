@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { trpc } from '@/lib/trpc';
 import { useT, useLang } from '@/contexts/LangContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { parseSqlSchemas } from '@/lib/sqlSchema';
 
 interface CodeSnippet {
   lang?: string;
@@ -63,6 +64,7 @@ export interface SolvePanelProps {
   codeSnippets: CodeSnippet[] | null | undefined;
   exampleTestcases?: string | null;
   category?: string | null;
+  mysqlSchemas?: string[] | null;
 }
 
 type Verdict =
@@ -105,7 +107,7 @@ function loadEditorSettings(): EditorSettings {
   } catch { return DEFAULT_SETTINGS; }
 }
 
-export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcases, category }: SolvePanelProps) {
+export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcases, category, mysqlSchemas }: SolvePanelProps) {
   const t = useT();
   const { lang: uiLang } = useLang();
   const me = trpc.auth.me.useQuery(undefined, { staleTime: 60_000 });
@@ -378,64 +380,6 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         )}
       </div>
 
-      {!canJudge && runSqlMut.data && (
-        <div className="space-y-3">
-          {runSqlMut.data.supported === false ? (
-            <p className="text-sm text-ink-soft font-mono">{t('judge.sqlUnsupported')}</p>
-          ) : (
-            <>
-              <div
-                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-mono ${VERDICT_TONE[runSqlMut.data.verdict as Verdict]}`}
-              >
-                <span className="font-semibold">
-                  {t(`judge.verdict.${runSqlMut.data.verdict}` as never)}
-                </span>
-                <span className="opacity-70">· {runSqlMut.data.runtimeMs}ms</span>
-              </div>
-              {runSqlMut.data.stderr && (
-                <pre className="p-3 text-xs font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded overflow-x-auto whitespace-pre-wrap">{runSqlMut.data.stderr}</pre>
-              )}
-              {runSqlMut.data.verdict === 'wrong_answer' && runSqlMut.data.expected && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {([
-                    [t('judge.sqlExpected'), runSqlMut.data.expected],
-                    [t('judge.sqlActual'), runSqlMut.data.actual ?? []],
-                  ] as const).map(([label, rows]) => (
-                    <div key={label} className="border border-border rounded overflow-hidden">
-                      <div className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest bg-secondary text-ink-soft border-b border-border">
-                        {label}
-                      </div>
-                      <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                        <table className="text-xs font-mono w-full">
-                          {runSqlMut.data.columns && (
-                            <thead>
-                              <tr>
-                                {runSqlMut.data.columns.map((c) => (
-                                  <th key={c} className="px-3 py-1.5 text-left border-b border-border text-ink-soft">{c}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                          )}
-                          <tbody>
-                            {rows.map((r, i) => (
-                              <tr key={i} className="odd:bg-secondary/40">
-                                {r.map((v, j) => (
-                                  <td key={j} className="px-3 py-1 whitespace-nowrap">{v}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
       {!canJudge && showAnswer && referenceSql && (
         <div className="border border-emerald-300 dark:border-emerald-800 rounded overflow-hidden">
           <div className="px-4 py-2 text-xs font-mono uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 border-b border-emerald-300 dark:border-emerald-800">
@@ -457,14 +401,18 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
       )}
 
       <div>
-        <BottomPanel
-          result={result}
-          runMut={runMut}
-          verdictPill={verdictPill}
-          exampleTestcases={exampleTestcases}
-          codeSnippets={codeSnippets}
-          t={t}
-        />
+        {canJudge ? (
+          <BottomPanel
+            result={result}
+            runMut={runMut}
+            verdictPill={verdictPill}
+            exampleTestcases={exampleTestcases}
+            codeSnippets={codeSnippets}
+            t={t}
+          />
+        ) : (
+          <SqlBottomPanel schemas={mysqlSchemas} run={runSqlMut} t={t} />
+        )}
       </div>
 
       {isLoggedIn && (
@@ -544,6 +492,10 @@ function SubmissionDetailDialog({
         } | null;
         stderr?: string;
         compileStderr?: string | null;
+        // SQL submissions store the judged tables directly.
+        columns?: string[] | null;
+        expected?: string[][] | null;
+        actual?: string[][] | null;
       }
     | null
     | undefined;
@@ -659,6 +611,17 @@ function SubmissionDetailDialog({
                   <CaseBlock label={t('judge.error')} value={result.firstFail.error} pre />
                 )}
               </div>
+            )}
+
+            {sub.language === 'mysql' && result?.actual && (
+              verdict === 'wrong_answer' && result.expected ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SqlResultTable label={t('judge.sqlExpected')} columns={result.columns} rows={result.expected} />
+                  <SqlResultTable label={t('judge.sqlActual')} columns={result.columns} rows={result.actual} />
+                </div>
+              ) : (
+                <SqlResultTable label={t('judge.sqlActual')} columns={result.columns} rows={result.actual} />
+              )
             )}
 
             {result?.compileStderr && (
@@ -807,7 +770,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
         </button>
       </div>
 
-      <div className="p-4 max-h-64 overflow-y-auto">
+      <div className="p-4 min-h-12 resize-y overflow-y-auto">
         {bottomTab === 'cases' && (
           <div className="space-y-3">
             {cases.length === 0 ? (
@@ -902,6 +865,160 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
                 {!r.firstFail && r.stderr && r.verdict !== 'accepted' && (
                   <CaseBlock label={t('judge.stderr')} value={r.stderr} pre />
                 )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SqlResultTable({ label, columns, rows }: {
+  label: string;
+  columns: string[] | null | undefined;
+  rows: string[][];
+}) {
+  return (
+    <div className="border border-border rounded overflow-hidden">
+      <div className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest bg-secondary text-ink-soft border-b border-border">
+        {label}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="text-xs font-mono w-full">
+          {columns && (
+            <thead>
+              <tr>
+                {columns.map((c) => (
+                  <th key={c} className="px-3 py-1.5 text-left border-b border-border text-ink-soft">{c}</th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td className="px-3 py-2 text-ink-soft">(empty)</td></tr>
+            ) : (
+              rows.map((r, i) => (
+                <tr key={i} className="odd:bg-secondary/40">
+                  {r.map((v, j) => (
+                    <td key={j} className="px-3 py-1 whitespace-nowrap">{v}</td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+type SqlRunData =
+  | { supported: false }
+  | {
+      supported: true;
+      verdict: string;
+      runtimeMs: number;
+      columns: string[] | null;
+      expected: string[][] | null;
+      actual: string[][] | null;
+      stderr: string;
+    };
+
+function SqlBottomPanel({ schemas, run, t }: {
+  schemas: string[] | null | undefined;
+  run: { isPending: boolean; isError: boolean; error?: { message?: string } | null; data?: SqlRunData };
+  t: (key: string) => string;
+}) {
+  const [bottomTab, setBottomTab] = useState<'cases' | 'result'>('cases');
+  const d = run.data;
+  const exampleTables = useMemo(() => parseSqlSchemas(schemas ?? []), [schemas]);
+
+  // Auto-switch to result tab when a run starts / finishes.
+  useEffect(() => {
+    if (run.isPending || d) setBottomTab('result');
+  }, [run.isPending, d]);
+
+  const ok = d && d.supported !== false ? d : null;
+
+  return (
+    <div className="border border-border rounded-lg bg-white/60 dark:bg-slate-800/60 overflow-hidden">
+      <div className="flex border-b border-border">
+        <button
+          type="button"
+          onClick={() => setBottomTab('cases')}
+          className={`px-4 py-2 text-xs font-mono ${bottomTab === 'cases' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
+        >
+          ☑ {t('judge.testcases')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setBottomTab('result')}
+          className={`px-4 py-2 text-xs font-mono ${bottomTab === 'result' ? 'text-emerald-700 border-b-2 border-emerald-600 -mb-px' : 'text-ink-soft hover:text-ink'}`}
+        >
+          {'>'} {t('judge.testResult')}
+          {ok && (
+            <span className={`ml-1.5 ${ok.verdict === 'accepted' ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {ok.verdict === 'accepted' ? '1/1' : '0/1'}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Auto-fits its content; drag the bottom-right handle to resize, then it scrolls. */}
+      <div className="p-4 min-h-12 resize-y overflow-y-auto">
+        {bottomTab === 'cases' && (
+          <div className="space-y-3">
+            {!schemas || schemas.length === 0 ? (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.noCases')}</p>
+            ) : exampleTables.length > 0 ? (
+              exampleTables.map((table) => (
+                <SqlResultTable key={table.name} label={table.name} columns={table.columns} rows={table.rows} />
+              ))
+            ) : (
+              schemas.map((stmt, i) => (
+                <pre key={i} className="bg-secondary/80 dark:bg-slate-700/80 rounded px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                  {stmt.trim()}
+                </pre>
+              ))
+            )}
+          </div>
+        )}
+
+        {bottomTab === 'result' && (
+          <div className="space-y-3">
+            {run.isPending && (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.submitting')}</p>
+            )}
+            {run.isError && (
+              <div className="text-rose-800 text-xs font-mono">{run.error?.message ?? 'submit failed'}</div>
+            )}
+            {!d && !run.isPending && !run.isError && (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.firstGenerationHint')}</p>
+            )}
+            {d && d.supported === false && (
+              <p className="text-xs text-ink-soft font-mono">{t('judge.sqlUnsupported')}</p>
+            )}
+            {ok && (
+              <>
+                <div
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-mono ${VERDICT_TONE[ok.verdict as Verdict]}`}
+                >
+                  <span className="font-semibold">{t(`judge.verdict.${ok.verdict}` as never)}</span>
+                  <span className="opacity-70">· {ok.runtimeMs}ms</span>
+                </div>
+                {ok.stderr && (
+                  <pre className="p-3 text-xs font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded overflow-x-auto whitespace-pre-wrap">{ok.stderr}</pre>
+                )}
+                {ok.verdict === 'wrong_answer' && ok.expected ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <SqlResultTable label={t('judge.sqlExpected')} columns={ok.columns} rows={ok.expected} />
+                    <SqlResultTable label={t('judge.sqlActual')} columns={ok.columns} rows={ok.actual ?? []} />
+                  </div>
+                ) : ok.actual ? (
+                  <SqlResultTable label={t('judge.sqlActual')} columns={ok.columns} rows={ok.actual} />
+                ) : null}
               </>
             )}
           </div>

@@ -29,6 +29,7 @@ CREATE TABLE problems (
   exampleTestcases TEXT,
   mysqlSchemasJson TEXT,
   topicTagsJson TEXT,
+  sqlTagsJson TEXT,
   similarQuestionsJson TEXT,
   codeSnippetsJson TEXT,
   contentFetchedAt TEXT,

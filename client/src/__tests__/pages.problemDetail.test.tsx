@@ -8,7 +8,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     problems: {
       getBySlug: { useQuery: vi.fn() },
-      list: { useQuery: vi.fn().mockReturnValue({ data: { items: [] }, isLoading: false }) },
+      neighbors: { useQuery: vi.fn().mockReturnValue({ data: { prev: null, next: null }, isLoading: false }) },
       companyTags: { useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }) },
       solutions: { useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }) },
     },

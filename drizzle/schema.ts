@@ -71,6 +71,8 @@ export const problems = mysqlTable(
     /** CREATE TABLE / INSERT statements for the example case of SQL problems. */
     mysqlSchemasJson: json("mysqlSchemasJson").$type<string[]>(),
     topicTagsJson: json("topicTagsJson"),
+    /** App-generated SQL topic tags for database problems; never touched by LeetCode sync. */
+    sqlTagsJson: json("sqlTagsJson").$type<{ name: string; slug: string }[]>(),
     similarQuestionsJson: json("similarQuestionsJson"),
     codeSnippetsJson: json("codeSnippetsJson"),
     contentFetchedAt: timestamp("contentFetchedAt"),

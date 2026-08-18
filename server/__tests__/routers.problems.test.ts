@@ -21,6 +21,22 @@ describe('routers/problems', () => {
     );
   });
 
+  it('neighbors returns prev/next from db helper', async () => {
+    vi.spyOn(db, 'getProblemNeighbors').mockResolvedValue({
+      prev: { frontendId: 196, titleSlug: 'delete-duplicate-emails' },
+      next: { frontendId: 511, titleSlug: 'game-play-analysis-i' },
+    });
+    const caller = problemsRouter.createCaller({
+      user: null,
+      req: {} as Request,
+      res: {} as Response,
+    });
+    const r = await caller.neighbors({ titleSlug: 'trips-and-users' });
+    expect(r.prev?.frontendId).toBe(196);
+    expect(r.next?.titleSlug).toBe('game-play-analysis-i');
+    expect(db.getProblemNeighbors).toHaveBeenCalledWith('trips-and-users');
+  });
+
   it('getBySlug returns null when not found', async () => {
     vi.spyOn(db, 'getProblemBySlug').mockResolvedValue(null);
     const caller = problemsRouter.createCaller({

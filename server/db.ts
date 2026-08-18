@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -196,6 +196,34 @@ export async function getProblemBySlug(slug: string): Promise<Problem | null> {
   return rows[0] ?? null;
 }
 
+export type ProblemNeighbor = { frontendId: number; titleSlug: string };
+
+/** Prev/next problem by frontendId within the same category as the given problem. */
+export async function getProblemNeighbors(
+  titleSlug: string,
+): Promise<{ prev: ProblemNeighbor | null; next: ProblemNeighbor | null }> {
+  const db = await getDb();
+  if (!db) return { prev: null, next: null };
+  const cur = await getProblemBySlug(titleSlug);
+  if (!cur) return { prev: null, next: null };
+  const fields = { frontendId: problems.frontendId, titleSlug: problems.titleSlug };
+  const [prevRows, nextRows] = await Promise.all([
+    db
+      .select(fields)
+      .from(problems)
+      .where(and(eq(problems.category, cur.category), lt(problems.frontendId, cur.frontendId)))
+      .orderBy(desc(problems.frontendId))
+      .limit(1),
+    db
+      .select(fields)
+      .from(problems)
+      .where(and(eq(problems.category, cur.category), gt(problems.frontendId, cur.frontendId)))
+      .orderBy(asc(problems.frontendId))
+      .limit(1),
+  ]);
+  return { prev: prevRows[0] ?? null, next: nextRows[0] ?? null };
+}
+
 export async function upsertProblem(p: InsertProblem): Promise<void> {
   const db = await getDb();
   if (!db) return;
@@ -213,6 +241,7 @@ export async function upsertProblem(p: InsertProblem): Promise<void> {
       ...(p.hintsJson !== undefined ? { hintsJson: p.hintsJson } : {}),
       ...(p.exampleTestcases !== undefined ? { exampleTestcases: p.exampleTestcases } : {}),
       ...(p.topicTagsJson !== undefined ? { topicTagsJson: p.topicTagsJson } : {}),
+      ...(p.sqlTagsJson !== undefined ? { sqlTagsJson: p.sqlTagsJson } : {}),
       ...(p.similarQuestionsJson !== undefined ? { similarQuestionsJson: p.similarQuestionsJson } : {}),
       ...(p.codeSnippetsJson !== undefined ? { codeSnippetsJson: p.codeSnippetsJson } : {}),
       ...(p.contentFetchedAt !== undefined ? { contentFetchedAt: p.contentFetchedAt } : {}),

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Link } from 'wouter';
 import { Streamdown } from 'streamdown';
 import { trpc } from '@/lib/trpc';
@@ -10,6 +10,8 @@ import { SolvePanel } from '@/components/SolvePanel';
 import { CodeBlock } from '@/components/CodeBlock';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { Difficulty } from '@shared/problemTypes';
+import { tagDisplayName } from '@/lib/problemTags';
+import { stripPythonSolutions } from '@/lib/solutionMarkdown';
 
 type SimilarQuestion = { title: string; titleSlug: string; difficulty: string };
 
@@ -25,25 +27,19 @@ type ProblemDetailRow = {
   codeSnippetsJson?: CodeSnippet[] | null;
   similarQuestionsJson?: SimilarQuestion[] | null;
   topicTagsJson?: { name: string; slug: string }[] | null;
+  sqlTagsJson?: { name: string; slug: string }[] | null;
 };
 
 export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const t = useT();
   const { lang } = useLang();
   const q = trpc.problems.getBySlug.useQuery({ titleSlug }, { staleTime: 60_000 });
-  const allQ = trpc.problems.list.useQuery({ limit: 200 }, { staleTime: 120_000 });
+  const neighborsQ = trpc.problems.neighbors.useQuery({ titleSlug }, { staleTime: 120_000 });
   const problemId = (q.data as ProblemDetailRow | undefined)?.id ?? 0;
   const companyQ = trpc.problems.companyTags.useQuery({ problemId }, { staleTime: 120_000, enabled: problemId > 0 });
 
-  const { prev, next } = useMemo(() => {
-    const all = ((allQ.data as { items?: unknown[] } | undefined)?.items ?? []) as Array<{ frontendId: number; titleSlug: string }>;
-    const sorted = [...all].sort((a, b) => a.frontendId - b.frontendId);
-    const idx = sorted.findIndex(x => x.titleSlug === titleSlug);
-    return {
-      prev: idx > 0 ? sorted[idx - 1] : null,
-      next: idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null,
-    };
-  }, [allQ.data, titleSlug]);
+  const prev = neighborsQ.data?.prev ?? null;
+  const next = neighborsQ.data?.next ?? null;
 
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
   if (!q.data) return <p className="text-ink-soft">{t('empty')}</p>;
@@ -55,7 +51,10 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const snippets = (p.codeSnippetsJson ?? []) as CodeSnippet[];
 
   const similarQuestions = (p.similarQuestionsJson ?? []) as SimilarQuestion[];
-  const topicTags = (p.topicTagsJson ?? []) as { name: string; slug: string }[];
+  const topicTags = [
+    ...((p.topicTagsJson ?? []) as { name: string; slug: string }[]),
+    ...((p.sqlTagsJson ?? []) as { name: string; slug: string }[]),
+  ];
   const companies = (companyQ.data ?? []) as Array<{ companySlug: string; companyName: string }>;
   const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
 
@@ -76,8 +75,8 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   );
 
   return (
-    <div className="w-full space-y-4">
-      <div className="flex flex-col gap-2">
+    <div className="w-full h-full flex flex-col gap-4">
+      <div className="flex flex-col gap-2 shrink-0">
         <div className="flex items-center justify-between">
           <Link
             href="/problems"
@@ -109,7 +108,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           <div className="flex gap-1.5 flex-wrap items-center">
             {topicTags.map(tag => (
               <span key={tag.slug} className="px-2.5 py-1 text-xs font-mono bg-secondary rounded text-ink-soft">
-                {tag.name}
+                {tagDisplayName(tag, lang)}
               </span>
             ))}
             {uniqueCompanies.length > 0 && topicTags.length > 0 && (
@@ -131,11 +130,11 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         <ProgressSection problemId={p.id} />
       </div>
 
-      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-12rem)]">
+      <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
         <ResizablePanel defaultSize={40} minSize={20}>
           <div className="h-full overflow-y-auto pr-2 space-y-4">
             {descriptionCard}
-            <SolutionPanel problemId={p.id} />
+            <SolutionPanel problemId={p.id} isDatabase={(p as { category?: string | null }).category === 'database'} />
             {similarQuestions.length > 0 && (
               <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-4">
                 <h3 className="font-mono text-xs uppercase text-ink-soft tracking-widest mb-3">
@@ -160,17 +159,16 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60} minSize={30}>
           <div className="h-full overflow-y-auto pl-2">
-            <div className="sticky top-0 z-10">
-              <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
-                <SolvePanel
-                  problemId={p.id}
-                  titleSlug={p.titleSlug}
-                  codeSnippets={snippets}
-                  exampleTestcases={(p as { exampleTestcases?: string | null }).exampleTestcases}
-                  category={(p as { category?: string | null }).category}
-                />
-              </section>
-            </div>
+            <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
+              <SolvePanel
+                problemId={p.id}
+                titleSlug={p.titleSlug}
+                codeSnippets={snippets}
+                exampleTestcases={(p as { exampleTestcases?: string | null }).exampleTestcases}
+                category={(p as { category?: string | null }).category}
+                mysqlSchemas={(p as { mysqlSchemasJson?: string[] | null }).mysqlSchemasJson}
+              />
+            </section>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -191,7 +189,7 @@ function cleanSolutionMarkdown(raw: string): string {
     .trim();
 }
 
-function SolutionPanel({ problemId }: { problemId: number }) {
+function SolutionPanel({ problemId, isDatabase }: { problemId: number; isDatabase?: boolean }) {
   const t = useT();
   const { lang } = useLang();
   const q = trpc.problems.solutions.useQuery({ problemId }, { staleTime: 60_000 });
@@ -206,7 +204,8 @@ function SolutionPanel({ problemId }: { problemId: number }) {
   const preferred = lang === 'zh' ? 'zh' : 'en';
   const preferredSol = solutions.find(s => s.language === preferred);
   const sol = preferredSol ?? (lang === 'zh' ? null : solutions[0] ?? null);
-  const cleaned = sol ? cleanSolutionMarkdown(sol.contentMarkdown) : null;
+  let cleaned = sol ? cleanSolutionMarkdown(sol.contentMarkdown) : null;
+  if (cleaned && isDatabase) cleaned = stripPythonSolutions(cleaned);
 
   return (
     <div className="space-y-6">
