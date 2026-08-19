@@ -1,6 +1,6 @@
 import { LEETCODE_CN_GRAPHQL, LEETCODE_US_GRAPHQL, COMPANY_SLUG_MAP } from './constants';
 import { taskAiPregenerate } from './aiPregenerate';
-import { registerSyncTasks } from './orchestrator';
+import { registerSyncTasks, type ProgressReporter } from './orchestrator';
 import {
   fetchListProblems,
   fetchQuestionDetailEn,
@@ -46,7 +46,7 @@ export async function probeLeetcodeCn(): Promise<{ available: boolean; succeeded
   return { available: ok >= 2, succeeded: ok };
 }
 
-async function taskInitialBootstrap() {
+async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
   let processed = 0;
   let ok = 0;
   let failed = 0;
@@ -66,6 +66,13 @@ async function taskInitialBootstrap() {
   const cnAvailable = skipCn ? false : (await probeLeetcodeCn()).available;
   console.log('[bootstrap] cn available:', cnAvailable, 'skipLlm:', skipLlm);
 
+  // Fetch every list up front: one cheap request each, and it makes the item
+  // total known before the slow per-problem loop, so the UI can show a bar.
+  type FetchedList = {
+    listId: number;
+    items: Awaited<ReturnType<typeof fetchListProblems>>;
+  };
+  const fetchedLists: FetchedList[] = [];
   for (const l of lists) {
     try {
       console.log('[bootstrap] fetching list:', l.slug);
@@ -77,6 +84,20 @@ async function taskInitialBootstrap() {
         titleZh: l.titleZh,
         source: 'leetcode-list',
       });
+      fetchedLists.push({ listId, items });
+    } catch {
+      failed++;
+    }
+  }
+
+  const companyDirs = knownCompanyDirNames();
+  const total = fetchedLists.reduce((n, f) => n + f.items.length, 0) + companyDirs.length;
+  const progress = (phase: string) =>
+    report({ processed, succeeded: ok, failed, total, phase });
+  progress('problems');
+
+  for (const { listId, items } of fetchedLists) {
+    try {
       let pos = 0;
       for (const it of items) {
         await db.upsertProblem({
@@ -149,6 +170,7 @@ async function taskInitialBootstrap() {
             failed++;
           }
           processed++;
+          progress('problems');
         }
       }
     } catch {
@@ -156,7 +178,7 @@ async function taskInitialBootstrap() {
     }
   }
 
-  for (const dir of knownCompanyDirNames()) {
+  for (const dir of companyDirs) {
     try {
       const rows = await fetchCompanyCsv(dir, 'all');
       for (const row of rows) {
@@ -196,6 +218,7 @@ async function taskInitialBootstrap() {
       failed++;
     }
     processed++;
+    progress('companies');
   }
   return { itemsProcessed: processed, itemsSucceeded: ok, itemsFailed: failed };
 }
@@ -268,8 +291,8 @@ async function taskDailySyncMeta() {
   return { itemsProcessed: 0, itemsSucceeded: 0, itemsFailed: 0 };
 }
 
-async function taskManual() {
-  return await taskInitialBootstrap();
+async function taskManual(report: ProgressReporter) {
+  return await taskInitialBootstrap(report);
 }
 
 async function taskProbe() {

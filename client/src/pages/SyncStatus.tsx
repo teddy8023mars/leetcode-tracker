@@ -13,6 +13,7 @@ type SyncRow = {
   itemsProcessed?: number | null;
   itemsSucceeded?: number | null;
   itemsFailed?: number | null;
+  metaJson?: { total?: number | null; phase?: string | null } | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -93,9 +94,13 @@ export function SyncStatus() {
             const totalProblems = (problemsQ.data as { total?: number } | undefined)?.total ?? 0;
             const isAiTask = r.syncType === 'ai-pregenerate';
             const isRunning = r.status === 'running';
-            const expectedTotal = isAiTask ? totalProblems * 2 : 0;
+            // Tasks report their own total mid-run; fall back to the old
+            // estimate for logs written before that existed.
+            const reportedTotal = r.metaJson?.total ?? 0;
+            const expectedTotal =
+              reportedTotal > 0 ? reportedTotal : isAiTask ? totalProblems * 2 : 0;
             const processed = r.itemsProcessed ?? 0;
-            const pct = isRunning && isAiTask && expectedTotal > 0
+            const pct = isRunning && expectedTotal > 0
               ? Math.min(Math.round((processed / expectedTotal) * 100), 100)
               : null;
 
@@ -129,7 +134,9 @@ export function SyncStatus() {
                   {pct !== null ? (
                     <div className="flex items-center gap-2">
                       <Progress value={pct} className="h-2 w-24" />
-                      <span className="text-xs text-ink-soft">{pct}%</span>
+                      <span className="text-xs text-ink-soft">
+                        {processed}/{expectedTotal}
+                      </span>
                     </div>
                   ) : (
                     processed

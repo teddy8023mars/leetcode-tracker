@@ -1,23 +1,15 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { syncLogs } from '../../drizzle/schema';
 import { generateAiSolution } from './aiGeneration';
-import type { TaskResult } from './orchestrator';
+import type { ProgressReporter, TaskResult } from './orchestrator';
 import type { Language } from '@shared/problemTypes';
 
 const LANGUAGES: Language[] = ['en', 'zh'];
 const CONCURRENCY = 5;
 
-async function updateRunningLog(processed: number, succeeded: number, failed: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(syncLogs)
-    .set({ itemsProcessed: processed, itemsSucceeded: succeeded, itemsFailed: failed })
-    .where(and(eq(syncLogs.syncType, 'ai-pregenerate'), eq(syncLogs.status, 'running')))
-    .catch(() => {});
-}
-
-export async function taskAiPregenerate(): Promise<TaskResult> {
+export async function taskAiPregenerate(
+  report: ProgressReporter = () => {},
+): Promise<TaskResult> {
   const db = await getDb();
   if (!db) return { itemsProcessed: 0, itemsSucceeded: 0, itemsFailed: 0, errorSummary: 'DB unavailable' };
 
@@ -53,11 +45,10 @@ export async function taskAiPregenerate(): Promise<TaskResult> {
       if (errors.length < 10) errors.push(msg);
     }
     processed++;
-    if (processed % CONCURRENCY === 0 || processed === jobs.length) {
-      await updateRunningLog(processed, succeeded, failed);
-    }
+    report({ processed, succeeded, failed, total: jobs.length, phase: 'ai-solutions' });
   }
 
+  report({ processed, succeeded, failed, total: jobs.length, phase: 'ai-solutions' });
   for (let i = 0; i < jobs.length; i += CONCURRENCY) {
     const batch = jobs.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(runJob));
