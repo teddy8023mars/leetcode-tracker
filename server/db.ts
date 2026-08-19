@@ -338,6 +338,19 @@ export async function upsertCompanyTag(c: InsertCompanyTag): Promise<void> {
   });
 }
 
+/** Newest syncedAt across one company's tags, or null when it has none. */
+export async function getCompanyTagsLastSyncedAt(companySlug: string): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ syncedAt: companyTags.syncedAt })
+    .from(companyTags)
+    .where(eq(companyTags.companySlug, companySlug))
+    .orderBy(desc(companyTags.syncedAt))
+    .limit(1);
+  return rows[0]?.syncedAt ?? null;
+}
+
 export async function upsertProblemList(l: InsertProblemList): Promise<number> {
   const db = await getDb();
   if (!db) return 0;

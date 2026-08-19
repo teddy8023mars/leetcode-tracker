@@ -17,6 +17,23 @@ export function __setProbeFetchForTest(fn: typeof globalThis.fetch | undefined) 
   _probeFetch = fn ?? globalThis.fetch.bind(globalThis);
 }
 
+/**
+ * How long a problem's fetched content counts as fresh. A manual refresh skips
+ * anything newer than this, so re-running it over an already-populated database
+ * takes seconds instead of re-downloading every problem.
+ */
+export const CONTENT_FRESH_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** True when a problem has no content yet, or its content has aged out. */
+export function needsContentRefresh(
+  p: { contentEn: string | null; contentFetchedAt: Date | null } | undefined,
+  now: number,
+  maxAgeMs: number = CONTENT_FRESH_MS,
+): boolean {
+  if (!p?.contentEn || !p.contentFetchedAt) return true;
+  return now - p.contentFetchedAt.getTime() >= maxAgeMs;
+}
+
 const PROBE_QUERY = `query q($titleSlug:String!){question(titleSlug:$titleSlug){translatedTitle}}`;
 const PROBE_SLUGS = ['two-sum', 'add-two-numbers', 'reverse-integer'];
 
@@ -46,10 +63,14 @@ export async function probeLeetcodeCn(): Promise<{ available: boolean; succeeded
   return { available: ok >= 2, succeeded: ok };
 }
 
-async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
+async function taskInitialBootstrap(
+  report: ProgressReporter = () => {},
+  opts: { force?: boolean } = {},
+) {
   let processed = 0;
   let ok = 0;
   let failed = 0;
+  let skipped = 0;
 
   const lists: { slug: string; titleEn: string; titleZh: string }[] = [
     { slug: 'top-100-liked', titleEn: 'Hot 100', titleZh: '热题 100' },
@@ -112,6 +133,13 @@ async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
         const p = await db.getProblemBySlug(it.titleSlug);
         if (p) {
           await db.upsertProblemListItem({ listId, problemId: p.id, position: pos++ });
+          if (!opts.force && !needsContentRefresh(p, Date.now())) {
+            skipped++;
+            ok++;
+            processed++;
+            progress('problems');
+            continue;
+          }
           try {
             const en = await fetchQuestionDetailEn(it.titleSlug);
             if (en) {
@@ -179,6 +207,17 @@ async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
   }
 
   for (const dir of companyDirs) {
+    const companySlug = COMPANY_SLUG_MAP[dir] ?? dir.toLowerCase();
+    if (!opts.force) {
+      const lastSynced = await db.getCompanyTagsLastSyncedAt(companySlug);
+      if (lastSynced && Date.now() - lastSynced.getTime() < CONTENT_FRESH_MS) {
+        skipped++;
+        ok++;
+        processed++;
+        progress('companies');
+        continue;
+      }
+    }
     try {
       const rows = await fetchCompanyCsv(dir, 'all');
       for (const row of rows) {
@@ -205,7 +244,7 @@ async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
         if (fresh) {
           await db.upsertCompanyTag({
             problemId: fresh.id,
-            companySlug: COMPANY_SLUG_MAP[dir] ?? dir.toLowerCase(),
+            companySlug,
             companyName: dir,
             frequency: String(row.frequency),
             timeframe: 'all',
@@ -220,6 +259,9 @@ async function taskInitialBootstrap(report: ProgressReporter = () => {}) {
     processed++;
     progress('companies');
   }
+  console.log(
+    `[bootstrap] done: processed=${processed} ok=${ok} failed=${failed} skipped(fresh)=${skipped}`,
+  );
   return { itemsProcessed: processed, itemsSucceeded: ok, itemsFailed: failed };
 }
 
@@ -291,6 +333,7 @@ async function taskDailySyncMeta() {
   return { itemsProcessed: 0, itemsSucceeded: 0, itemsFailed: 0 };
 }
 
+/** Manual refresh: incremental, skips problems whose content is still fresh. */
 async function taskManual(report: ProgressReporter) {
   return await taskInitialBootstrap(report);
 }
@@ -301,7 +344,8 @@ async function taskProbe() {
 }
 
 registerSyncTasks({
-  'initial-bootstrap': taskInitialBootstrap,
+  // The first-run bootstrap always refetches; the manual button is incremental.
+  'initial-bootstrap': (report) => taskInitialBootstrap(report, { force: true }),
   'daily-sync-lists': taskDailySyncLists,
   'daily-sync-companies': taskDailySyncCompanies,
   'daily-sync-meta': taskDailySyncMeta,
