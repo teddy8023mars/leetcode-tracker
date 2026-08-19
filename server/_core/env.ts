@@ -10,3 +10,17 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };
+
+/**
+ * True when the app runs without any login: a local dev server or the
+ * single-user desktop build, neither of which has an OAuth server to sign in
+ * against. In this mode the context auto-provisions a local user and the
+ * owner/admin checks are skipped, so sync and judging work out of the box.
+ * Reads process.env directly so tests can toggle it.
+ */
+export function isLocalNoAuthMode(): boolean {
+  if (process.env.OAUTH_SERVER_URL) return false;
+  return (
+    process.env.NODE_ENV !== "production" || process.env.LOCAL_DESKTOP === "1"
+  );
+}
