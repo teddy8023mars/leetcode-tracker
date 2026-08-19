@@ -28,6 +28,8 @@ export function SyncStatus() {
   const { user } = useAuth();
   const q = trpc.sync.status.useQuery(undefined, { staleTime: 2_000, refetchInterval: 2_000 });
   const problemsQ = trpc.problems.list.useQuery({ limit: 1 }, { staleTime: 60_000 });
+  const llmQ = trpc.system.llmStatus.useQuery(undefined, { staleTime: 60_000 });
+  const llmConfigured = llmQ.data?.configured ?? false;
   const utils = trpc.useUtils();
   const trigger = trpc.sync.triggerManual.useMutation({
     onSuccess: () => {
@@ -60,7 +62,8 @@ export function SyncStatus() {
             <Button
               variant="outline"
               onClick={() => trigger.mutate({ syncType: 'ai-pregenerate' })}
-              disabled={trigger.isPending}
+              disabled={trigger.isPending || !llmConfigured}
+              title={llmConfigured ? undefined : t('sync.aiNeedsLlm')}
             >
               {trigger.isPending ? t('loading') : t('sync.runAiPregenerate')}
             </Button>
@@ -69,6 +72,10 @@ export function SyncStatus() {
           <span className="text-xs text-ink-soft font-mono">{t('sync.loginFirst')}</span>
         )}
       </div>
+
+      {!llmQ.isLoading && !llmConfigured && (
+        <p className="text-xs text-ink-soft font-mono">{t('sync.aiNeedsLlm')}</p>
+      )}
 
       <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
         {t('sync.recent')}

@@ -18,6 +18,18 @@ export const ENV = {
  * owner/admin checks are skipped, so sync and judging work out of the box.
  * Reads process.env directly so tests can toggle it.
  */
+/**
+ * True when an LLM endpoint is actually usable. AI features (test-case
+ * generation, AI solutions, translation) are optional: without a key the app
+ * still browses, syncs and judges anything with stored test data.
+ * 'unused' was the placeholder key shipped in desktop builds up to 1.2.3 —
+ * treat it as unconfigured rather than sending it to a stranger's endpoint.
+ */
+export function isLlmConfigured(): boolean {
+  const key = (process.env.BUILT_IN_FORGE_API_KEY ?? "").trim();
+  return key.length > 0 && key !== "unused";
+}
+
 export function isLocalNoAuthMode(): boolean {
   if (process.env.OAUTH_SERVER_URL) return false;
   return (
