@@ -74,6 +74,9 @@ jspm_packages/
 # Optional REPL history
 .node_repl_history
 
+# Isolated feature worktrees
+.worktrees/
+
 # Output of 'npm pack'
 *.tgz
 
