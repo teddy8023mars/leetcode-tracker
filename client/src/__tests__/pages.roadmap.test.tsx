@@ -119,6 +119,36 @@ describe('Roadmap', () => {
     expect(screen.getByRole('button', { name: /Arrays/ })).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('does not reopen a chapter the learner closed when it becomes current again', async () => {
+    const { rerender } = render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+    const arrayToggle = screen.getByRole('button', { name: /Arrays/ });
+    await userEvent.click(arrayToggle);
+    expect(arrayToggle).toHaveAttribute('aria-expanded', 'false');
+
+    const linkedListCurrent = roadmapData() as any;
+    const next = {
+      key: 'linked-list-2', kind: 'leetcode', position: 2, frontendId: 4,
+      titleSlug: 'four', titleZh: 'Four', titleEn: 'Four', sourceUrl,
+      mapping: 'mapped',
+      localProblem: { id: 4, frontendId: 4, titleSlug: 'four', titleEn: 'Four', titleZh: '四', difficulty: 'Easy', status: 'todo' },
+    };
+    linkedListCurrent.next = next;
+    linkedListCurrent.sections[1].items.push(next);
+    linkedListCurrent.sections[1].progress = { completed: 0, total: 1 };
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data: linkedListCurrent, isLoading: false });
+    rerender(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+    await waitFor(() => expect(screen.getByRole('button', { name: /Linked Lists/ }))
+      .toHaveAttribute('aria-expanded', 'true'));
+
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data: roadmapData(), isLoading: false });
+    rerender(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    await waitFor(() => expect(screen.getByText('Current chapter: Arrays')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Arrays/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('keeps article and external explanations visible when source URLs are rejected', () => {
     const data = roadmapData();
     data.sections[0].items[0].sourceUrl = 'https://evil.example/article';

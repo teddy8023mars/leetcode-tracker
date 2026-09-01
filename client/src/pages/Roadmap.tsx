@@ -72,13 +72,13 @@ export function Roadmap({ slug }: { slug: string }) {
     };
   }, [data]);
   const [openSections, setOpenSections] = useState<string[]>([]);
-  const initializedCurrentSection = useRef<string | null>(null);
+  const initializedCurrentSections = useRef(new Set<string>());
 
   useEffect(() => {
     if (!data || !current) return;
     const currentSectionKey = `${data.slug}:${current.section.slug}`;
-    if (initializedCurrentSection.current === currentSectionKey) return;
-    initializedCurrentSection.current = currentSectionKey;
+    if (initializedCurrentSections.current.has(currentSectionKey)) return;
+    initializedCurrentSections.current.add(currentSectionKey);
     setOpenSections(existing => existing.includes(current.section.slug)
       ? existing
       : [...existing, current.section.slug]);
