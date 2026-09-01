@@ -189,13 +189,15 @@ app.whenReady().then(async () => {
   buildMenu();
   applyEnv();
   try {
-    const { startServer, ensureSeeded } = await import('./server.mjs');
+    const { startServer, ensureSeeded, ensureDesktopSchema } = await import('./server.mjs');
     // First run on a fresh machine: create the database and import the
     // bundled content snapshot so the app works without a manual sync.
     await ensureSeeded({
       databaseUrl: process.env.DATABASE_URL,
       seedPath: path.join(process.resourcesPath, 'seed.sql.gz'),
     });
+    // Existing databases are not reseeded, so apply guarded additive DDL on every launch.
+    await ensureDesktopSchema({ databaseUrl: process.env.DATABASE_URL });
     serverPort = await startServer({
       staticDir: path.join(app.getAppPath(), 'dist', 'public'),
       preferredPort: PREFERRED_PORT,

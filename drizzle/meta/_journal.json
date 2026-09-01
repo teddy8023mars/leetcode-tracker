@@ -15,6 +15,13 @@
       "when": 1778524678568,
       "tag": "0001_medical_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788280200000,
+      "tag": "0002_daily_learning_coach",
+      "breakpoints": true
     }
   ]
 }

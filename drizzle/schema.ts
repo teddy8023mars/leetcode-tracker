@@ -270,6 +270,75 @@ export const attempts = mysqlTable(
 export type Attempt = typeof attempts.$inferSelect;
 export type InsertAttempt = typeof attempts.$inferInsert;
 
+/** One adherence-first study profile per local user. */
+export const studyProfiles = mysqlTable(
+  "studyProfiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id),
+    currentDayIndex: int("currentDayIndex").default(0).notNull(),
+    targetDaysPerWeek: int("targetDaysPerWeek").default(5).notNull(),
+    standardMinutes: int("standardMinutes").default(90).notNull(),
+    minimumMinutes: int("minimumMinutes").default(25).notNull(),
+    lastCompletedAt: timestamp("lastCompletedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({ uniq: unique("uniq_studyProfile_user").on(t.userId) }),
+);
+
+export type StudyProfile = typeof studyProfiles.$inferSelect;
+export type InsertStudyProfile = typeof studyProfiles.$inferInsert;
+
+/** At most one core study session is created for a user on a local date. */
+export const studySessions = mysqlTable(
+  "studySessions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id),
+    localDate: varchar("localDate", { length: 10 }).notNull(),
+    curriculumDayIndex: int("curriculumDayIndex").notNull(),
+    mode: mysqlEnum("mode", ["standard", "minimum"]).notNull(),
+    status: mysqlEnum("status", ["in_progress", "completed"]).default("in_progress").notNull(),
+    startedAt: timestamp("startedAt").defaultNow().notNull(),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    uniq: unique("uniq_studySession_user_date").on(t.userId, t.localDate),
+    statusIdx: index("idx_studySessions_user_status").on(t.userId, t.status),
+    dateIdx: index("idx_studySessions_user_date").on(t.userId, t.localDate),
+  }),
+);
+
+export type StudySession = typeof studySessions.$inferSelect;
+export type InsertStudySession = typeof studySessions.$inferInsert;
+
+/** Durable completion state for the four stable task keys in a session. */
+export const studyTaskProgress = mysqlTable(
+  "studyTaskProgress",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    sessionId: int("sessionId").notNull().references(() => studySessions.id),
+    taskKey: varchar("taskKey", { length: 32 }).notNull(),
+    taskType: mysqlEnum("taskType", ["review", "dsa_lesson", "problem", "gcp", "system_design", "behavioral"]).notNull(),
+    problemId: int("problemId").references(() => problems.id),
+    status: mysqlEnum("status", ["pending", "completed"]).default("pending").notNull(),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    uniq: unique("uniq_studyTask_session_key").on(t.sessionId, t.taskKey),
+    sessionIdx: index("idx_studyTask_session").on(t.sessionId),
+    problemIdx: index("idx_studyTask_problem").on(t.problemId),
+  }),
+);
+
+export type StudyTaskProgress = typeof studyTaskProgress.$inferSelect;
+export type InsertStudyTaskProgress = typeof studyTaskProgress.$inferInsert;
+
 /**
  * Sync task audit log.
  */

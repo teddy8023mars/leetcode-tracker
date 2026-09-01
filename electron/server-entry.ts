@@ -11,6 +11,7 @@ import { createContext } from '../server/_core/context';
 import { createScheduledRouter } from '../server/scheduled';
 
 export { ensureSeeded } from '../server/_core/seedImport';
+export { ensureDesktopSchema } from '../server/_core/desktopSchema';
 
 /**
  * Production-only server entry for the desktop app. Mirrors
