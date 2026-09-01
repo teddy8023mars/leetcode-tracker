@@ -2,6 +2,7 @@ import type { Dict } from './en';
 export const zh: Dict = {
   nav: {
     today: '今日',
+    roadmap: '学习路线',
     dashboard: '仪表盘',
     problems: '题目',
     lists: '题单',
@@ -149,6 +150,23 @@ export const zh: Dict = {
     recentEmpty: '暂无提交。',
     nextReview: '下次复习: {date}',
     submittedAt: '提交时间',
+  },
+  roadmap: {
+    title: '代码随想录学习路线',
+    loading: '正在加载学习路线…',
+    unavailable: '学习路线暂不可用。',
+    attribution: '参考来源：{source}',
+    sourceCommit: '来源版本：{commit}',
+    progress: '已完成 {completed} / {total} 题',
+    chapterProgress: '{completed} / {total} 题已完成',
+    currentChapter: '当前章节：{chapter}',
+    suggestedArticle: '建议先阅读：',
+    continue: '继续下一题',
+    noContinue: '暂无可继续的本地题目。',
+    readOriginal: '阅读原文',
+    viewSource: '查看来源',
+    unavailableLocal: '本地暂不可用',
+    externalProblem: '外部 ACM 题目 · {provider}',
   },
   judge: {
     tab: '在线判题',

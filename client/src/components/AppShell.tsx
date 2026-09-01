@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 
 const NAV = [
   { href: '/today', key: 'nav.today' },
+  { href: '/roadmap/code-thinking', key: 'nav.roadmap' },
   { href: '/review', key: 'nav.review' },
   { href: '/problems', key: 'nav.problems' },
   { href: '/sync', key: 'nav.sync' },

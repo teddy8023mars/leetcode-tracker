@@ -1,6 +1,7 @@
 export const en = {
   nav: {
     today: 'Today',
+    roadmap: 'Roadmap',
     dashboard: 'Dashboard',
     problems: 'Problems',
     lists: 'Lists',
@@ -148,6 +149,23 @@ export const en = {
     recentEmpty: 'No submissions yet.',
     nextReview: 'Next review: {date}',
     submittedAt: 'Submitted',
+  },
+  roadmap: {
+    title: 'Code Thinking Roadmap',
+    loading: 'Loading roadmap…',
+    unavailable: 'Roadmap unavailable.',
+    attribution: 'Based on {source}',
+    sourceCommit: 'Source commit: {commit}',
+    progress: '{completed} / {total} problems complete',
+    chapterProgress: '{completed} / {total} complete',
+    currentChapter: 'Current chapter: {chapter}',
+    suggestedArticle: 'Suggested preceding article:',
+    continue: 'Continue',
+    noContinue: 'No local problem is ready to continue.',
+    readOriginal: 'Read original',
+    viewSource: 'View source',
+    unavailableLocal: 'Unavailable locally',
+    externalProblem: 'External ACM problem · {provider}',
   },
   judge: {
     tab: 'Solve',

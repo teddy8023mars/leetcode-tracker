@@ -8,6 +8,8 @@ function Probe() {
   return (
     <div>
       <span data-testid="title">{t('nav.problems')}</span>
+      <span data-testid="roadmap-nav">{t('nav.roadmap')}</span>
+      <span data-testid="roadmap-title">{t('roadmap.title')}</span>
       <span data-testid="lang">{lang}</span>
       <button onClick={() => setLang('zh')}>switch</button>
     </div>
@@ -25,6 +27,8 @@ describe('i18n', () => {
     );
     expect(screen.getByTestId('lang').textContent).toBe('en');
     expect(screen.getByTestId('title').textContent).toBe('Problems');
+    expect(screen.getByTestId('roadmap-nav').textContent).toBe('Roadmap');
+    expect(screen.getByTestId('roadmap-title').textContent).toBe('Code Thinking Roadmap');
   });
   it('switches to zh', async () => {
     render(
@@ -36,5 +40,6 @@ describe('i18n', () => {
       screen.getByText('switch').click();
     });
     expect(screen.getByTestId('title').textContent).toBe('题目');
+    expect(screen.getByTestId('roadmap-nav').textContent).toBe('学习路线');
   });
 });

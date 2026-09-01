@@ -22,6 +22,10 @@ describe('AppShell', () => {
     expect(screen.getByText('Sync')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
     expect(screen.getByText('child')).toBeInTheDocument();
+
+    expect(screen.getAllByRole('link').map(link => link.textContent)).toEqual([
+      'Today', 'Roadmap', 'Review', 'Problems', 'Sync', 'Settings',
+    ]);
   });
   it('renders the blueprint background', () => {
     const { container } = render(
