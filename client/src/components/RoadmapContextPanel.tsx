@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 
-import { useLang } from '@/contexts/LangContext';
+import { useLang, useT } from '@/contexts/LangContext';
 import { roadmapProblemHref, safeExternalRoadmapUrl } from '@/lib/roadmapLinks';
 import { flattenRoadmapNodes } from '@shared/roadmaps/navigation';
 
@@ -112,6 +112,7 @@ function NeighborLink({
   view: RoadmapView;
 }) {
   const { lang } = useLang();
+  const t = useT();
   if (!item) return null;
 
   const label = displayTitle(item.localProblem ?? item, lang, item.localProblem?.titleSlug ?? item.key);
@@ -131,7 +132,13 @@ function NeighborLink({
 
   return localHref
     ? <Link href={localHref} className={className}>{content}</Link>
-    : <a href={externalHref!} target="_blank" rel="noreferrer" className={className}>{content}</a>;
+    : <a
+      href={externalHref!}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${content} (${t('roadmap.opensInBrowser')})`}
+      className={className}
+    >{content}</a>;
 }
 
 export function RoadmapContextPanel({
@@ -142,6 +149,7 @@ export function RoadmapContextPanel({
   resolved: ResolvedRoadmapContext;
 }) {
   const { lang } = useLang();
+  const t = useT();
   const chapter = displayTitle(resolved.section, lang, resolved.section.slug);
   const roadmapTitle = displayTitle(view, lang, view.slug);
 
@@ -151,7 +159,7 @@ export function RoadmapContextPanel({
         {roadmapTitle} · {chapter} · {resolved.current.position}/{resolved.section.items.length}
       </span>
       <Link href={`/roadmap/${view.slug}#section-${resolved.section.slug}`} className="text-sm font-mono underline hover:text-ink">
-        Back to roadmap
+        {t('roadmap.back')}
       </Link>
       <div className="ml-auto flex items-center gap-1">
         <NeighborLink direction="previous" item={resolved.previous} section={resolved.previousSection} view={view} />

@@ -45,7 +45,10 @@ const view = {
 };
 
 describe('roadmap context helpers', () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    window.localStorage.removeItem('lt.lang');
+  });
 
   it('parses only a complete positive roadmap step', () => {
     expect(parseRoadmapContext('?roadmap=code-thinking&section=array&step=2')).toEqual({
@@ -81,7 +84,24 @@ describe('roadmap context helpers', () => {
     expect(screen.getByRole('link', { name: /Remove Element/ })).toHaveAttribute(
       'href', '/problems/remove-element?roadmap=code-thinking&section=linked-list&step=1',
     );
-    expect(screen.getByRole('link', { name: /Start here/ })).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: /Start here.*opens in system browser/ }))
+      .toHaveAttribute('target', '_blank');
+  });
+
+  it('localizes the return action in Chinese', () => {
+    window.localStorage.setItem('lt.lang', 'zh');
+    const resolved = resolveRoadmapContext(view, {
+      roadmapSlug: 'code-thinking', sectionSlug: 'array', step: 2,
+    }, 'binary-search');
+    if (!resolved) throw new Error('expected the roadmap route to resolve');
+
+    render(<LangProvider><RoadmapContextPanel view={view} resolved={resolved} /></LangProvider>);
+
+    expect(screen.getByRole('link', { name: '返回学习路线' })).toHaveAttribute(
+      'href', '/roadmap/code-thinking#section-array',
+    );
+    expect(screen.getByRole('link', { name: /Start here.*将在系统浏览器中打开/ }))
+      .toHaveAttribute('target', '_blank');
   });
 
   it('omits an unsafe non-local neighbor control', () => {

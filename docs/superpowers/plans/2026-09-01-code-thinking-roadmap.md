@@ -169,12 +169,12 @@ export type NodeOverride = {
 
 export const CODE_THINKING_OVERRIDES: Record<string, NodeOverride> = {
   './problems/面试题02.07.链表相交.md': {
-    kind: 'leetcode', frontendId: 160, titleSlug: 'intersection-of-two-linked-lists',
+    kind: 'article',
   },
 };
 ```
 
-Classification order is: exact override; any `/kamacoder/` path becomes `external`; an entry with a recognized LeetCode number becomes `leetcode`; everything else becomes `article`. For every LeetCode node, resolve `titleSlug` through the reviewed override map and a generated `frontendId -> titleSlug` map built from the current local catalog; abort rather than emit a blank slug. Emit sorted, stable object keys and end the output with:
+LCCI-labelled nodes such as `面试题02.07` remain articles rather than being remapped to a numerically similar LeetCode problem. This preserves the approved upstream source identity and the pinned roadmap occurrence/unique counts. Classification order is: exact override; any `/kamacoder/` path becomes `external`; an entry with a recognized LeetCode number becomes `leetcode`; everything else becomes `article`. For every LeetCode node, resolve `titleSlug` through the reviewed override map and a generated `frontendId -> titleSlug` map built from the current local catalog; abort rather than emit a blank slug. Emit sorted, stable object keys and end the output with:
 
 ```ts
 export const CODE_THINKING_ROADMAP = RoadmapDefinitionSchema.parse(generatedRoadmap);
@@ -763,4 +763,3 @@ git log --oneline --max-count=12
 ```
 
 Expected: clean feature tree and all tests pass. Follow `superpowers:finishing-a-development-branch` for the final integration choice; do not delete or merge a branch without the user's selected option.
-

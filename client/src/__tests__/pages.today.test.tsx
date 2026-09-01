@@ -76,7 +76,7 @@ describe('TodayPage', () => {
 
   afterEach(() => cleanup());
 
-  it('shows the no-debt preview and starts the recommended session', async () => {
+  it('lets the learner choose a mode before starting and starts that selection', async () => {
     (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ data: todayData(false), isLoading: false });
     render(<LangProvider><TodayPage /></LangProvider>);
 
@@ -84,8 +84,27 @@ describe('TodayPage', () => {
     expect(screen.getByText('0/5 learning days')).toBeInTheDocument();
     expect(screen.getByText('Day 1 of 60')).toBeInTheDocument();
     expect(screen.getByText('Missing a day never creates backlog.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Start 90-minute session' }));
-    expect(start).toHaveBeenCalledWith({ mode: 'standard' });
+    expect(screen.getByRole('button', { name: 'Standard · 90 min' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Minimum · 25 min' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Minimum · 25 min' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start 25-minute session' }));
+    expect(start).toHaveBeenCalledWith({ mode: 'minimum' });
+    expect(setMode).not.toHaveBeenCalled();
+  });
+
+  it('synchronizes an untouched preview selection when the recommendation changes', () => {
+    const standard = todayData(false);
+    (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data: standard, isLoading: false });
+    const { rerender } = render(<LangProvider><TodayPage /></LangProvider>);
+
+    const minimum = todayData(false);
+    minimum.recommendedMode = 'minimum';
+    (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data: minimum, isLoading: false });
+    rerender(<LangProvider><TodayPage /></LangProvider>);
+
+    expect(screen.getByRole('button', { name: 'Start 25-minute session' })).toBeEnabled();
   });
 
   it('renders four ordered standard tasks and gates finishing', async () => {

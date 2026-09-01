@@ -81,10 +81,51 @@ describe('Roadmap', () => {
     expect(screen.getByRole('link', { name: /Continue/ })).toHaveAttribute(
       'href', '/problems/two?roadmap=code-thinking&section=array&step=3',
     );
-    expect(screen.getByRole('link', { name: /Read original/ })).toHaveAttribute('target', '_blank');
+    expect(screen.getByText('Suggested preceding article:')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Start here.*opens in system browser/ }))
+      .toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: /Read original.*opens in system browser/ }))
+      .toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: /View source.*opens in system browser/ }))
+      .toHaveAttribute('target', '_blank');
     expect(screen.getByText('External ACM problem')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'External ACM problem · KamaCoder' }))
+    expect(screen.getByRole('link', { name: /External ACM problem · KamaCoder.*opens in system browser/ }))
       .toHaveAttribute('rel', 'noreferrer');
+    expect(screen.getByRole('link', { name: /Based on Carl.*opens in system browser/ }))
+      .toHaveAttribute('target', '_blank');
+  });
+
+  it('renders a completed state with a localized review action to the first chapter', async () => {
+    const data = roadmapData();
+    data.progress = { completed: 2, total: 2 };
+    data.next = null as never;
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data, isLoading: false });
+
+    render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    expect(screen.getByText('Roadmap complete. Review any chapter at your own pace.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review first chapter' }))
+      .toHaveAttribute('href', '#section-array');
+    expect(screen.queryByText('No local problem is ready to continue.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Arrays/ })).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(screen.getByRole('link', { name: 'Review first chapter' }));
+
+    expect(screen.getByRole('button', { name: /Arrays/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('retains the no-local-problem state when the roadmap has no mapped problems', () => {
+    const data = roadmapData();
+    data.progress = { completed: 0, total: 0 };
+    data.next = null as never;
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data, isLoading: false });
+
+    render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    expect(screen.getByText('No local problem is ready to continue.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Review first chapter' })).not.toBeInTheDocument();
   });
 
   it('opens the current chapter by default and leaves it closed when the learner collapses it', async () => {

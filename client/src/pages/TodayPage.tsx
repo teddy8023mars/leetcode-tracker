@@ -1,4 +1,5 @@
 import { Check, Circle, Clock3, Cloud, Code2, RotateCcw, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 
 import { Badge } from '@/components/ui/badge';
@@ -23,13 +24,19 @@ export function TodayPage() {
   const setMode = trpc.study.setMode.useMutation({ onSuccess: refresh });
   const completeTask = trpc.study.completeTask.useMutation({ onSuccess: refresh });
   const completeSession = trpc.study.completeSession.useMutation({ onSuccess: refresh });
+  const recommendation = query.data?.recommendedMode ?? 'standard';
+  const [selectedMode, setSelectedMode] = useState<'standard' | 'minimum'>(recommendation);
+
+  useEffect(() => {
+    if (!query.data?.session) setSelectedMode(recommendation);
+  }, [query.data?.session?.id, recommendation]);
 
   if (query.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
   if (!query.data) return <p className="text-ink-soft">{t('empty')}</p>;
   const data = query.data;
   const day = data.curriculumDay;
   const session = data.session;
-  const mode = session?.mode ?? data.recommendedMode;
+  const mode = session?.mode ?? selectedMode;
   const taskByKey = new Map(data.tasks.map((task) => [task.taskKey, task]));
   const isComplete = (key: TaskKey) => taskByKey.get(key)?.status === 'completed';
   const required = new Set(data.requiredTaskKeys);
@@ -42,6 +49,7 @@ export function TodayPage() {
 
   const setSessionMode = (nextMode: 'standard' | 'minimum') => {
     if (session) setMode.mutate({ sessionId: session.id, mode: nextMode });
+    else setSelectedMode(nextMode);
   };
 
   return (
@@ -81,13 +89,13 @@ export function TodayPage() {
             <button
               type="button"
               onClick={() => setSessionMode('standard')}
-              disabled={!session || setMode.isPending}
+              disabled={setMode.isPending || (!!session && session.status !== 'in_progress')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${mode === 'standard' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-ink-soft'}`}
             >{t('today.standardMode')}</button>
             <button
               type="button"
               onClick={() => setSessionMode('minimum')}
-              disabled={!session || setMode.isPending}
+              disabled={setMode.isPending || (!!session && session.status !== 'in_progress')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${mode === 'minimum' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-ink-soft'}`}
             >{t('today.minimumMode')}</button>
           </div>
@@ -97,11 +105,11 @@ export function TodayPage() {
             <p className="text-sm text-ink-soft">{t('today.noBacklog')}</p>
             <Button
               size="lg"
-              onClick={() => start.mutate({ mode: data.recommendedMode })}
+              onClick={() => start.mutate({ mode: selectedMode })}
               disabled={start.isPending}
             >
               <Sparkles className="w-4 h-4" />
-              {data.recommendedMode === 'minimum' ? t('today.startMinimum') : t('today.startStandard')}
+              {selectedMode === 'minimum' ? t('today.startMinimum') : t('today.startStandard')}
             </Button>
           </CardContent>
         )}

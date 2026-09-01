@@ -66,9 +66,7 @@ export function Roadmap({ slug }: { slug: string }) {
     const nextIndex = section.items.findIndex(item => item.key === data.next?.key);
     return {
       section,
-      precedingArticle: nextIndex > 0 && section.items[nextIndex - 1].kind === 'article'
-        ? section.items[nextIndex - 1]
-        : null,
+      precedingArticle: section.items.slice(0, nextIndex).findLast(item => item.kind === 'article') ?? null,
     };
   }, [data]);
   const [openSections, setOpenSections] = useState<string[]>([]);
@@ -94,6 +92,8 @@ export function Roadmap({ slug }: { slug: string }) {
       localProblem: { titleSlug: data.next.localProblem.titleSlug },
     })
     : null;
+  const completed = data.progress.total > 0 && data.progress.completed === data.progress.total;
+  const firstSection = data.sections[0];
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -105,7 +105,13 @@ export function Roadmap({ slug }: { slug: string }) {
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm text-ink-soft">
             {sourceLink ? (
-              <a href={sourceLink} target="_blank" rel="noreferrer" className="underline hover:text-ink">
+              <a
+                href={sourceLink}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${t('roadmap.attribution', { source: data.sourceName })} (${t('roadmap.opensInBrowser')})`}
+                className="underline hover:text-ink"
+              >
                 {t('roadmap.attribution', { source: data.sourceName })}
               </a>
             ) : <span>{t('roadmap.attribution', { source: data.sourceName })}</span>}
@@ -126,6 +132,18 @@ export function Roadmap({ slug }: { slug: string }) {
             <Button asChild>
               <Link href={nextHref}>{t('roadmap.continue')}</Link>
             </Button>
+          ) : completed && firstSection ? (
+            <div className="space-y-3">
+              <p className="text-sm text-ink-soft">{t('roadmap.completed')}</p>
+              <Button asChild variant="outline">
+                <a
+                  href={`#section-${firstSection.slug}`}
+                  onClick={() => setOpenSections(existing => Array.from(new Set([...existing, firstSection.slug])))}
+                >
+                  {t('roadmap.reviewFirstChapter')}
+                </a>
+              </Button>
+            </div>
           ) : <p className="text-sm text-ink-soft">{t('roadmap.noContinue')}</p>}
         </CardContent>
       </Card>
@@ -177,7 +195,17 @@ function PrecedingArticle({ item, allowedHosts, lang }: { item: RoadmapItem; all
   return (
     <p className="text-sm text-ink-soft">
       {t('roadmap.suggestedArticle')}{' '}
-      {href ? <a href={href} target="_blank" rel="noreferrer" className="underline hover:text-ink">{displayTitle(item, lang)}</a> : displayTitle(item, lang)}
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${displayTitle(item, lang)} (${t('roadmap.opensInBrowser')})`}
+          className="underline hover:text-ink"
+        >
+          {displayTitle(item, lang)}
+        </a>
+      ) : displayTitle(item, lang)}
     </p>
   );
 }
@@ -208,13 +236,31 @@ function RoadmapNode({ item, roadmapSlug, sectionSlug, allowedHosts, lang }: {
       </>}
       {item.kind === 'leetcode' && item.mapping === 'missing' && <>
         <Badge variant="secondary">{t('roadmap.unavailableLocal')}</Badge>
-        {sourceHref && <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">{t('roadmap.viewSource')}</a>}
+        {sourceHref && <a
+          href={sourceHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${t('roadmap.viewSource')} (${t('roadmap.opensInBrowser')})`}
+          className="text-sm underline"
+        >{t('roadmap.viewSource')}</a>}
       </>}
       {item.kind === 'article' && (sourceHref ? (
-        <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">{t('roadmap.readOriginal')}</a>
+        <a
+          href={sourceHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${t('roadmap.readOriginal')} (${t('roadmap.opensInBrowser')})`}
+          className="text-sm underline"
+        >{t('roadmap.readOriginal')}</a>
       ) : <span className="text-sm text-ink-soft">{t('roadmap.readOriginal')}</span>)}
       {item.kind === 'external' && (sourceHref ? (
-        <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">
+        <a
+          href={sourceHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${t('roadmap.externalProblem', { provider: item.provider ?? '' })} (${t('roadmap.opensInBrowser')})`}
+          className="text-sm underline"
+        >
           {t('roadmap.externalProblem', { provider: item.provider ?? '' })}
         </a>
       ) : <span className="text-sm text-ink-soft">{t('roadmap.externalProblem', { provider: item.provider ?? '' })}</span>)}
