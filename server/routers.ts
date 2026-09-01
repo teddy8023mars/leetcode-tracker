@@ -9,6 +9,7 @@ import { syncRouter } from "./routers/sync";
 import { judgeRouter } from "./routers/judge";
 import { aiSolutionsRouter } from "./routers/aiSolutions";
 import { progressRouter } from "./routers/progress";
+import { studyRouter } from "./routers/study";
 
 export const appRouter = router({
   system: systemRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   judge: judgeRouter,
   aiSolutions: aiSolutionsRouter,
   progress: progressRouter,
+  study: studyRouter,
 });
 
 export type AppRouter = typeof appRouter;
