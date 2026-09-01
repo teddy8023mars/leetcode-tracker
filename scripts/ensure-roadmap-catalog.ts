@@ -2,6 +2,7 @@ import { getDb } from '../server/db';
 import { problems } from '../drizzle/schema';
 import { CODE_THINKING_ROADMAP } from '../shared/roadmaps/codeThinking';
 import type { RoadmapLeetCodeNode } from '../shared/roadmaps/types';
+import { applyRoadmapTitleFallback } from '../server/roadmaps/catalog';
 import { fetchQuestionCatalogEntry } from '../server/sync/leetcode';
 
 function collectUniqueLeetCodeNodes(): RoadmapLeetCodeNode[] {
@@ -45,7 +46,7 @@ async function main(): Promise<void> {
       }
       await db
         .insert(problems)
-        .values(entry)
+        .values(applyRoadmapTitleFallback(entry, node))
         .onDuplicateKeyUpdate({ set: { metaUpdatedAt: new Date() } });
       inserted.push(node.frontendId);
     } catch (error) {

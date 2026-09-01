@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyRoadmapTitleFallback } from '../roadmaps/catalog';
 import { __setFetchForTest, fetchQuestionCatalogEntry } from '../sync/leetcode';
 
 describe('sync/leetcode/fetchQuestionCatalogEntry', () => {
   beforeEach(() => __setFetchForTest(undefined));
 
-  it('maps a complete catalog entry from the LeetCode question response', async () => {
+  it('keeps a null source translation and uses the approved roadmap title as a catalog fallback', async () => {
     __setFetchForTest(
       vi.fn(async () => ({
         ok: true,
@@ -16,11 +17,11 @@ describe('sync/leetcode/fetchQuestionCatalogEntry', () => {
                 questionFrontendId: '376',
                 titleSlug: 'wiggle-subsequence',
                 title: 'Wiggle Subsequence',
-                translatedTitle: '摆动序列',
+                translatedTitle: null,
                 difficulty: 'MEDIUM',
                 isPaidOnly: false,
                 content: '<p>...</p>',
-                translatedContent: '<p>……</p>',
+                translatedContent: null,
                 hints: ['Track direction changes.'],
                 exampleTestcases: '1,7,4,9,2,5',
                 topicTags: [{ slug: 'dynamic-programming', name: 'Dynamic Programming' }],
@@ -32,17 +33,21 @@ describe('sync/leetcode/fetchQuestionCatalogEntry', () => {
       })) as unknown as typeof globalThis.fetch,
     );
 
-    expect(await fetchQuestionCatalogEntry('wiggle-subsequence')).toEqual(
+    const entry = await fetchQuestionCatalogEntry('wiggle-subsequence');
+    expect(entry).toEqual(
       expect.objectContaining({
         frontendId: 376,
         titleSlug: 'wiggle-subsequence',
         titleEn: 'Wiggle Subsequence',
-        titleZh: '摆动序列',
+        titleZh: null,
         difficulty: 'Medium',
         paidOnly: false,
         contentEn: '<p>...</p>',
         codeSnippetsJson: expect.any(Array),
       }),
+    );
+    expect(applyRoadmapTitleFallback(entry!, { titleZh: '贪心算法：376.摆动序列' })).toEqual(
+      expect.objectContaining({ titleZh: '摆动序列' }),
     );
   });
 
