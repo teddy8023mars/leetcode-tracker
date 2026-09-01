@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
 
 import { DifficultyBadge } from '@/components/DifficultyBadge';
@@ -72,10 +72,17 @@ export function Roadmap({ slug }: { slug: string }) {
     };
   }, [data]);
   const [openSections, setOpenSections] = useState<string[]>([]);
+  const initializedCurrentSection = useRef<string | null>(null);
 
   useEffect(() => {
-    if (current && openSections.length === 0) setOpenSections([current.section.slug]);
-  }, [current, openSections.length]);
+    if (!data || !current) return;
+    const currentSectionKey = `${data.slug}:${current.section.slug}`;
+    if (initializedCurrentSection.current === currentSectionKey) return;
+    initializedCurrentSection.current = currentSectionKey;
+    setOpenSections(existing => existing.includes(current.section.slug)
+      ? existing
+      : [...existing, current.section.slug]);
+  }, [data?.slug, current?.section.slug]);
 
   if (query.isLoading) return <p className="font-mono text-sm text-ink-soft">{t('roadmap.loading')}</p>;
   if (!data) return <p className="font-mono text-sm text-ink-soft">{t('roadmap.unavailable')}</p>;
@@ -203,14 +210,14 @@ function RoadmapNode({ item, roadmapSlug, sectionSlug, allowedHosts, lang }: {
         <Badge variant="secondary">{t('roadmap.unavailableLocal')}</Badge>
         {sourceHref && <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">{t('roadmap.viewSource')}</a>}
       </>}
-      {item.kind === 'article' && sourceHref && (
+      {item.kind === 'article' && (sourceHref ? (
         <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">{t('roadmap.readOriginal')}</a>
-      )}
-      {item.kind === 'external' && sourceHref && (
+      ) : <span className="text-sm text-ink-soft">{t('roadmap.readOriginal')}</span>)}
+      {item.kind === 'external' && (sourceHref ? (
         <a href={sourceHref} target="_blank" rel="noreferrer" className="text-sm underline">
           {t('roadmap.externalProblem', { provider: item.provider ?? '' })}
         </a>
-      )}
+      ) : <span className="text-sm text-ink-soft">{t('roadmap.externalProblem', { provider: item.provider ?? '' })}</span>)}
     </div>
   );
 }

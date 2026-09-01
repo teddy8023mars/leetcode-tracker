@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { LangProvider } from '@/contexts/LangContext';
 import { Roadmap } from '@/pages/Roadmap';
@@ -82,6 +83,55 @@ describe('Roadmap', () => {
     );
     expect(screen.getByRole('link', { name: /Read original/ })).toHaveAttribute('target', '_blank');
     expect(screen.getByText('External ACM problem')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'External ACM problem · KamaCoder' }))
+      .toHaveAttribute('rel', 'noreferrer');
+  });
+
+  it('opens the current chapter by default and leaves it closed when the learner collapses it', async () => {
+    render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    const arrayToggle = screen.getByRole('button', { name: /Arrays/ });
+    expect(arrayToggle).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(arrayToggle);
+    expect(arrayToggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens a changed current chapter without closing chapters the learner already has open', async () => {
+    const { rerender } = render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+    const data = roadmapData() as any;
+    const next = {
+      key: 'linked-list-2', kind: 'leetcode', position: 2, frontendId: 4,
+      titleSlug: 'four', titleZh: 'Four', titleEn: 'Four', sourceUrl,
+      mapping: 'mapped',
+      localProblem: { id: 4, frontendId: 4, titleSlug: 'four', titleEn: 'Four', titleZh: '四', difficulty: 'Easy', status: 'todo' },
+    };
+    data.next = next;
+    data.sections[1].items.push(next);
+    data.sections[1].progress = { completed: 0, total: 1 };
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data, isLoading: false });
+
+    rerender(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Linked Lists/ }))
+      .toHaveAttribute('aria-expanded', 'true'));
+    expect(screen.getByRole('button', { name: /Arrays/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps article and external explanations visible when source URLs are rejected', () => {
+    const data = roadmapData();
+    data.sections[0].items[0].sourceUrl = 'https://evil.example/article';
+    data.sections[0].items[4].sourceUrl = 'https://evil.example/external';
+    (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
+      .mockReturnValue({ data, isLoading: false });
+
+    render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    expect(screen.getByText('Read original')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Read original' })).not.toBeInTheDocument();
+    expect(screen.getByText('External ACM problem · KamaCoder')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'External ACM problem · KamaCoder' })).not.toBeInTheDocument();
   });
 
   it('renders roadmap labels and chapter progress in Chinese', () => {
