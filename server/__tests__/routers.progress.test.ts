@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 
 import { progressRouter } from '../routers/progress';
 import * as db from '../db';
+import * as studyService from '../study/service';
 
 describe('routers/progress', () => {
   beforeEach(() => {
@@ -131,6 +132,30 @@ describe('routers/progress', () => {
       await expect(
         caller.update({ problemId: 1, status: 'done' }),
       ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
+
+    it('syncs a completed problem into the active study session', async () => {
+      const limit = vi.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 7, userId: 1, problemId: 42, status: 'done' }]);
+      const fakeDb = {
+        select: vi.fn(() => ({ from: vi.fn(() => ({ where: vi.fn(() => ({ limit })) })) })),
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({ onDuplicateKeyUpdate: vi.fn(async () => undefined) })),
+        })),
+      };
+      vi.spyOn(db, 'getDb').mockResolvedValue(fakeDb as never);
+      const sync = vi.spyOn(studyService, 'completeMatchingStudyProblemTasks').mockResolvedValue(1);
+      const caller = progressRouter.createCaller({
+        user: null,
+        req: {} as Request,
+        res: {} as Response,
+      });
+
+      const result = await caller.update({ problemId: 42, status: 'done', quality: 4 });
+
+      expect(result?.status).toBe('done');
+      expect(sync).toHaveBeenCalledWith(fakeDb, 1, 42, expect.any(Date));
     });
   });
 
