@@ -162,30 +162,7 @@ async function _generateOnce(p: ProblemPromptInput): Promise<GeneratedSuite> {
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userMsg },
     ],
-    responseFormat: {
-      type: "json_schema",
-      json_schema: {
-        name: "test_suite",
-        schema: {
-          type: "object",
-          properties: {
-            methodName: { type: "string" },
-            cases: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  input: { type: "array" },
-                  expected: {},
-                },
-                required: ["input", "expected"],
-              },
-            },
-          },
-          required: ["methodName", "cases"],
-        },
-      },
-    },
+    responseFormat: { type: "json_object" },
   });
 
   const content = (resp as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;

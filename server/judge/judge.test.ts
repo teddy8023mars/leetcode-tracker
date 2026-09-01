@@ -51,6 +51,23 @@ class Solution:
     expect(parsed.cases[0].ok).toBe(false);
   });
 
+  it("preserves user TypeErrors instead of retrying array inputs as tree nodes", async () => {
+    const buggy = `
+class Solution:
+    def twoSum(self, nums, target):
+        seen = {}
+        for i, x in enumerate(nums):
+            if target - x in seen:
+                return seen[[target - x], i]
+            seen[x] = i
+        return []
+`;
+    const { parsed } = await runPython(buggy, TWO_SUM_SUITE);
+    expect(parsed.summary?.passed).toBe(0);
+    expect(parsed.cases[0]?.error).toMatch(/unhashable type/i);
+    expect(parsed.cases[0]?.error).not.toMatch(/TreeNode/);
+  });
+
   it("captures syntax errors gracefully", async () => {
     const broken = `
 class Solution

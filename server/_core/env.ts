@@ -8,5 +8,8 @@ export const ENV = {
   /** Single-user desktop build: allow the local-dev auto-login even in production. */
   isLocalDesktop: process.env.LOCAL_DESKTOP === "1",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  forgeApiKey:
+    process.env.BUILT_IN_FORGE_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? "",
+  forgeModel:
+    process.env.BUILT_IN_FORGE_MODEL ?? process.env.DEEPSEEK_MODEL ?? "",
 };

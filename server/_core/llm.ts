@@ -282,7 +282,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: params.model ?? "claude-sonnet-4-6",
+    model: params.model ?? (ENV.forgeModel.trim() || "claude-sonnet-4-6"),
     messages: messages.map(normalizeMessage),
   };
 

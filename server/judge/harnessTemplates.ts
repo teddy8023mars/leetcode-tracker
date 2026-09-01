@@ -148,25 +148,34 @@ if isinstance(_first_case_args, list) and any(isinstance(a, list) for a in _firs
     if _probe_method:
         try:
             _probe_method(*_first_case_args)
-        except (TypeError, AttributeError):
-            # Try flat linked: each list arg -> ListNode
-            _linked_args = [_list_to_linked(a) if isinstance(a, list) else a for a in _first_case_args]
-            try:
-                _probe_inst2 = Solution()
-                getattr(_probe_inst2, method_name)(*_linked_args)
-                _convert_mode = 'linked'
-            except (TypeError, AttributeError):
-                # Try nested linked: list of lists -> list of ListNodes
-                _nested_args = [
-                    [_list_to_linked(sub) if isinstance(sub, list) else sub for sub in a] if isinstance(a, list) and any(isinstance(sub, list) for sub in a) else (_list_to_linked(a) if isinstance(a, list) else a)
-                    for a in _first_case_args
-                ]
+        except AttributeError as _probe_error:
+            # Only retry when raw arrays clearly failed because the solution expects
+            # LeetCode node objects. A normal user TypeError is a code error, not a
+            # signal to reinterpret every array as a tree.
+            _probe_error_text = str(_probe_error)
+            _node_attribute_error = (
+                "'list' object has no attribute" in _probe_error_text
+                and any("'" + attr + "'" in _probe_error_text for attr in ('val', 'next', 'left', 'right'))
+            )
+            if _node_attribute_error:
+                # Try flat linked: each list arg -> ListNode
+                _linked_args = [_list_to_linked(a) if isinstance(a, list) else a for a in _first_case_args]
                 try:
-                    _probe_inst3 = Solution()
-                    getattr(_probe_inst3, method_name)(*_nested_args)
-                    _convert_mode = 'nested_linked'
+                    _probe_inst2 = Solution()
+                    getattr(_probe_inst2, method_name)(*_linked_args)
+                    _convert_mode = 'linked'
                 except (TypeError, AttributeError):
-                    _convert_mode = 'tree'
+                    # Try nested linked: list of lists -> list of ListNodes
+                    _nested_args = [
+                        [_list_to_linked(sub) if isinstance(sub, list) else sub for sub in a] if isinstance(a, list) and any(isinstance(sub, list) for sub in a) else (_list_to_linked(a) if isinstance(a, list) else a)
+                        for a in _first_case_args
+                    ]
+                    try:
+                        _probe_inst3 = Solution()
+                        getattr(_probe_inst3, method_name)(*_nested_args)
+                        _convert_mode = 'nested_linked'
+                    except (TypeError, AttributeError):
+                        _convert_mode = 'tree'
         except Exception:
             pass
 

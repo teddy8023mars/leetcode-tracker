@@ -18,6 +18,7 @@ const ENV_DEFAULTS = {
   OWNER_OPEN_ID: 'local-dev',
   BUILT_IN_FORGE_API_URL: 'https://llm-router.butterfly-effect.dev',
   BUILT_IN_FORGE_API_KEY: 'unused',
+  BUILT_IN_FORGE_MODEL: 'claude-sonnet-4-6',
 };
 
 const PREFERRED_PORT = 3900;

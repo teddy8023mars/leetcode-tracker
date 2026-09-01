@@ -60,7 +60,7 @@ Important variables:
 - `OWNER_OPEN_ID` - enables owner-only sync actions for that OAuth user.
 - `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`, `VITE_APP_ID` - Manus OAuth/app wiring.
 - `HEARTBEAT_SECRET` - protects `/api/scheduled/*` endpoints.
-- `BUILT_IN_FORGE_API_URL`, `BUILT_IN_FORGE_API_KEY` - OpenAI-compatible Forge endpoint used for translation and test generation.
+- `BUILT_IN_FORGE_API_URL`, `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_MODEL` - OpenAI-compatible LLM endpoint, credential, and model used for translation and test generation.
 - `BOOTSTRAP_SKIP_CN`, `BOOTSTRAP_SKIP_LLM` - optional bootstrap switches for long-running sync jobs.
 
 ## Common Commands
