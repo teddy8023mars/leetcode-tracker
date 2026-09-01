@@ -44,6 +44,14 @@ export const zh: Dict = {
     minutes: '分钟',
     taskComplete: '今日已完成',
   },
+  studyHints: {
+    title: '渐进提示',
+    subtitle: '只揭开你需要的部分，然后回到代码继续尝试。',
+    reveal: '查看提示 {number}',
+    allRevealed: '三个提示都已展开，打开完整题解前再尝试实现一次。',
+    completed: '今日任务已完成',
+    backToday: '返回今日学习',
+  },
   filter: {
     difficulty: '难度',
     company: '公司',

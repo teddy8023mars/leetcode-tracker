@@ -21,8 +21,12 @@ vi.mock('@/lib/trpc', () => ({
       listDue: { invalidate: vi.fn() },
       listAll: { invalidate: vi.fn() },
     },
+    study: {
+      today: { useQuery: vi.fn().mockReturnValue({ data: null, isLoading: false }) },
+    },
     useUtils: vi.fn().mockReturnValue({
       progress: { get: { invalidate: vi.fn() }, listDue: { invalidate: vi.fn() }, listAll: { invalidate: vi.fn() } },
+      study: { today: { invalidate: vi.fn() } },
     }),
   },
 }));
@@ -32,7 +36,10 @@ vi.mock('@/components/SolvePanel', () => ({
 }));
 
 describe('ProblemDetail', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState({}, '', '/problems/two-sum');
+  });
   afterEach(() => cleanup());
   it('renders title and difficulty', () => {
     (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -68,5 +75,34 @@ describe('ProblemDetail', () => {
       </LangProvider>,
     );
     expect(screen.getByText(/No data yet/)).toBeInTheDocument();
+  });
+
+  it('shows matching Today hints only for a valid study-linked problem', () => {
+    (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        id: 1, frontendId: 1, titleEn: 'Two Sum', titleZh: '两数之和', titleSlug: 'two-sum',
+        difficulty: 'Easy', contentEn: '<p>desc</p>', codeSnippetsJson: [],
+      },
+      isLoading: false,
+    });
+    (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        session: { id: 12, status: 'in_progress' },
+        tasks: [{ taskKey: 'problem', status: 'pending', problemId: 1 }],
+        coreProblem: { id: 1, titleSlug: 'two-sum' },
+        reviewProblem: null,
+        curriculumDay: {
+          hints: ['Name the invariant.', 'Store complements.', 'Check before insert.'],
+          hintsZh: ['写出不变量。', '保存补数。', '先查再插。'],
+        },
+      },
+      isLoading: false,
+    });
+    window.history.replaceState({}, '', '/problems/two-sum?studySession=12&studyTask=problem');
+
+    render(<LangProvider><ProblemDetail titleSlug="two-sum" /></LangProvider>);
+
+    expect(screen.getByRole('heading', { name: 'Progressive hints' })).toBeInTheDocument();
+    expect(screen.queryByText('Name the invariant.')).not.toBeInTheDocument();
   });
 });

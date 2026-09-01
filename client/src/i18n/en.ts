@@ -43,6 +43,14 @@ export const en = {
     minutes: 'min',
     taskComplete: 'Completed for today',
   },
+  studyHints: {
+    title: 'Progressive hints',
+    subtitle: 'Reveal only what you need, then return to the code.',
+    reveal: 'Reveal hint {number}',
+    allRevealed: 'You have all three hints. Try one more implementation pass before opening the full solution.',
+    completed: 'Today task complete',
+    backToday: 'Return to Today',
+  },
   filter: {
     difficulty: 'Difficulty',
     company: 'Company',

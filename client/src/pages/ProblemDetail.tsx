@@ -12,6 +12,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import type { Difficulty } from '@shared/problemTypes';
 import { tagDisplayName } from '@/lib/problemTags';
 import { stripPythonSolutions } from '@/lib/solutionMarkdown';
+import { StudyHintPanel } from '@/components/StudyHintPanel';
 
 type SimilarQuestion = { title: string; titleSlug: string; difficulty: string };
 
@@ -37,6 +38,11 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const neighborsQ = trpc.problems.neighbors.useQuery({ titleSlug }, { staleTime: 120_000 });
   const problemId = (q.data as ProblemDetailRow | undefined)?.id ?? 0;
   const companyQ = trpc.problems.companyTags.useQuery({ problemId }, { staleTime: 120_000, enabled: problemId > 0 });
+  const studyParams = new URLSearchParams(window.location.search);
+  const studySessionId = Number(studyParams.get('studySession'));
+  const studyTaskKey = studyParams.get('studyTask');
+  const hasStudyContext = Number.isInteger(studySessionId) && studySessionId > 0 && (studyTaskKey === 'review' || studyTaskKey === 'problem');
+  const studyQ = trpc.study.today.useQuery(undefined, { enabled: hasStudyContext, staleTime: 5_000 });
 
   const prev = neighborsQ.data?.prev ?? null;
   const next = neighborsQ.data?.next ?? null;
@@ -57,6 +63,12 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   ];
   const companies = (companyQ.data ?? []) as Array<{ companySlug: string; companyName: string }>;
   const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
+  const studyProblem = studyTaskKey === 'review' ? studyQ.data?.reviewProblem : studyQ.data?.coreProblem;
+  const studyTask = studyQ.data?.tasks.find((task) => task.taskKey === studyTaskKey);
+  const validStudyContext = hasStudyContext
+    && studyQ.data?.session?.id === studySessionId
+    && studyProblem?.titleSlug === p.titleSlug
+    && studyTask?.problemId === p.id;
 
   const descriptionCard = (
     <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
@@ -128,6 +140,12 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </div>
         )}
         <ProgressSection problemId={p.id} />
+        {validStudyContext && (
+          <StudyHintPanel
+            hints={lang === 'zh' ? studyQ.data!.curriculumDay.hintsZh : studyQ.data!.curriculumDay.hints}
+            completed={studyTask?.status === 'completed'}
+          />
+        )}
       </div>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
@@ -327,6 +345,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
       utils.progress.get.invalidate({ problemId });
       utils.progress.listDue.invalidate();
       utils.progress.listAll.invalidate();
+      utils.study.today.invalidate();
     },
   });
   const [showRating, setShowRating] = useState(false);
@@ -406,4 +425,3 @@ function ProgressSection({ problemId }: { problemId: number }) {
     </div>
   );
 }
-
