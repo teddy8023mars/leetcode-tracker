@@ -13,6 +13,12 @@ import type { Difficulty } from '@shared/problemTypes';
 import { tagDisplayName } from '@/lib/problemTags';
 import { stripPythonSolutions } from '@/lib/solutionMarkdown';
 import { StudyHintPanel } from '@/components/StudyHintPanel';
+import {
+  parseRoadmapContext,
+  resolveRoadmapContext,
+  RoadmapContextPanel,
+  type RoadmapView,
+} from '@/components/RoadmapContextPanel';
 
 type SimilarQuestion = { title: string; titleSlug: string; difficulty: string };
 
@@ -39,6 +45,11 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const problemId = (q.data as ProblemDetailRow | undefined)?.id ?? 0;
   const companyQ = trpc.problems.companyTags.useQuery({ problemId }, { staleTime: 120_000, enabled: problemId > 0 });
   const studyParams = new URLSearchParams(window.location.search);
+  const roadmapContext = parseRoadmapContext(window.location.search);
+  const roadmapQ = trpc.roadmaps.getBySlug.useQuery(
+    { slug: roadmapContext?.roadmapSlug ?? '' },
+    { enabled: roadmapContext !== null, staleTime: 60_000 },
+  );
   const studySessionId = Number(studyParams.get('studySession'));
   const studyTaskKey = studyParams.get('studyTask');
   const hasStudyContext = Number.isInteger(studySessionId) && studySessionId > 0 && (studyTaskKey === 'review' || studyTaskKey === 'problem');
@@ -50,6 +61,10 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
   if (!q.data) return <p className="text-ink-soft">{t('empty')}</p>;
   const p = q.data as ProblemDetailRow;
+  const roadmapView = roadmapQ.data as RoadmapView | undefined;
+  const resolvedRoadmapContext = roadmapContext && roadmapView
+    ? resolveRoadmapContext(roadmapView, roadmapContext, p.titleSlug)
+    : null;
 
   const wantZh = lang === 'zh';
   const usedZh = wantZh && !!p.contentZh;
@@ -96,19 +111,22 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           >
             {t('problemList.backToProblems')}
           </Link>
-          <div className="flex items-center gap-2">
-            {prev && (
-              <Link href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
-                ← #{prev.frontendId}
-              </Link>
-            )}
-            {next && (
-              <Link href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
-                #{next.frontendId} →
-              </Link>
-            )}
-          </div>
+          {!resolvedRoadmapContext && (
+            <div className="flex items-center gap-2">
+              {prev && (
+                <Link href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                  ← #{prev.frontendId}
+                </Link>
+              )}
+              {next && (
+                <Link href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                  #{next.frontendId} →
+                </Link>
+              )}
+            </div>
+          )}
         </div>
+        {resolvedRoadmapContext && <RoadmapContextPanel view={roadmapView!} resolved={resolvedRoadmapContext} />}
         <header className="flex items-baseline gap-3 flex-wrap">
           <span className="font-mono text-ink-soft text-lg">#{p.frontendId}</span>
           <h1 className="text-3xl font-extrabold tracking-tight">
@@ -346,6 +364,7 @@ function ProgressSection({ problemId }: { problemId: number }) {
       utils.progress.listDue.invalidate();
       utils.progress.listAll.invalidate();
       utils.study.today.invalidate();
+      utils.roadmaps?.getBySlug?.invalidate();
     },
   });
   const [showRating, setShowRating] = useState(false);
