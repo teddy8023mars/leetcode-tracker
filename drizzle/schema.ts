@@ -300,6 +300,7 @@ export const studySessions = mysqlTable(
     curriculumDayIndex: int("curriculumDayIndex").notNull(),
     mode: mysqlEnum("mode", ["standard", "minimum"]).notNull(),
     status: mysqlEnum("status", ["in_progress", "completed"]).default("in_progress").notNull(),
+    coreIsTimedReview: boolean("coreIsTimedReview").default(false).notNull(),
     startedAt: timestamp("startedAt").defaultNow().notNull(),
     completedAt: timestamp("completedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

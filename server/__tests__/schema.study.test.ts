@@ -25,6 +25,8 @@ describe('study persistence schema', () => {
     expect(() => sqlite.prepare('INSERT INTO studyProfiles (userId) VALUES (1)').run()).toThrow();
 
     sqlite.prepare("INSERT INTO studySessions (id,userId,localDate,curriculumDayIndex,mode,status) VALUES (1,1,'2026-09-01',0,'standard','in_progress')").run();
+    expect(sqlite.prepare('SELECT coreIsTimedReview FROM studySessions WHERE id = 1').get())
+      .toEqual({ coreIsTimedReview: 0 });
     expect(() => sqlite.prepare("INSERT INTO studySessions (userId,localDate,curriculumDayIndex,mode,status) VALUES (1,'2026-09-01',0,'minimum','in_progress')").run()).toThrow();
 
     sqlite.prepare("INSERT INTO studyTaskProgress (sessionId,taskKey,taskType,status) VALUES (1,'dsa','dsa_lesson','pending')").run();

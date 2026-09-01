@@ -135,6 +135,7 @@ CREATE TABLE studySessions (
   curriculumDayIndex INTEGER NOT NULL,
   mode TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'in_progress',
+  coreIsTimedReview INTEGER NOT NULL DEFAULT 0,
   startedAt TEXT DEFAULT CURRENT_TIMESTAMP,
   completedAt TEXT,
   createdAt TEXT DEFAULT CURRENT_TIMESTAMP,

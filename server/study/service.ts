@@ -28,6 +28,7 @@ export type StudySessionRecord = {
   curriculumDayIndex: number;
   mode: StudyMode;
   status: 'in_progress' | 'completed';
+  coreIsTimedReview: boolean;
   startedAt: Date;
   completedAt: Date | null;
 };
@@ -62,22 +63,90 @@ export interface StudyRepository {
     localDate: string;
     curriculumDayIndex: number;
     mode: StudyMode;
+    coreIsTimedReview: boolean;
     tasks: NewStudyTask[];
     now: Date;
   }): Promise<StudySessionRecord>;
   listTasks(sessionId: number): Promise<StudyTaskRecord[]>;
-  setSessionMode(userId: number, sessionId: number, mode: StudyMode): Promise<StudySessionRecord | null>;
-  completeTask(userId: number, sessionId: number, taskKey: StudyTaskKey, now: Date): Promise<boolean>;
-  completeProblemTasks(userId: number, problemId: number, now: Date): Promise<number>;
+  setSessionMode(
+    userId: number, sessionId: number, localDate: string, mode: StudyMode,
+  ): Promise<StudySessionRecord | null>;
+  completeTask(
+    userId: number, sessionId: number, localDate: string, taskKey: StudyTaskKey, now: Date,
+  ): Promise<boolean>;
+  completeProblemTasks(userId: number, problemId: number, localDate: string, now: Date): Promise<number>;
   completeSessionAndAdvance(
-    userId: number, sessionId: number, requiredKeys: StudyTaskKey[], now: Date,
-  ): Promise<'completed' | 'already_completed' | 'missing_tasks' | 'not_found'>;
+    userId: number, sessionId: number, localDate: string, now: Date,
+  ): Promise<StudyCompletionOutcome>;
   countCompletedSessions(userId: number, start: string, end: string): Promise<number>;
   findProblemsBySlugs(slugs: readonly string[]): Promise<StudyProblemSummary[]>;
   findProblemsByIds(ids: readonly number[]): Promise<StudyProblemSummary[]>;
   getProgressBySlugs(userId: number, slugs: readonly string[]): Promise<Record<string, string | undefined>>;
   findDueReview(userId: number, now: Date): Promise<StudyProblemSummary | null>;
   findOldestCompleted(userId: number): Promise<StudyProblemSummary | null>;
+}
+
+export type StudyCompletionOutcome =
+  | 'completed'
+  | 'already_completed'
+  | 'missing_tasks'
+  | 'stale_session'
+  | 'not_found';
+
+export type StudyCompletionInput = {
+  userId: number;
+  sessionId: number;
+  localDate: string;
+  now: Date;
+};
+
+export interface StudyCompletionTransaction {
+  lockSession(userId: number, sessionId: number): Promise<StudySessionRecord | null>;
+  lockProfile(userId: number): Promise<StudyProfileRecord | null>;
+  listCompletedTaskKeys(sessionId: number): Promise<StudyTaskKey[]>;
+  transitionSession(input: StudyCompletionInput): Promise<number>;
+  advanceProfile(input: {
+    userId: number;
+    currentDayIndex: number;
+    now: Date;
+  }): Promise<number>;
+}
+
+export interface StudyCompletionConnector {
+  transaction<T>(work: (tx: StudyCompletionTransaction) => Promise<T>): Promise<T>;
+}
+
+export async function completeStudySessionTransaction(
+  connector: StudyCompletionConnector,
+  input: StudyCompletionInput,
+): Promise<StudyCompletionOutcome> {
+  return connector.transaction(async (tx) => {
+    const session = await tx.lockSession(input.userId, input.sessionId);
+    if (!session) return 'not_found';
+
+    const profile = await tx.lockProfile(input.userId);
+    if (!profile) return 'not_found';
+    if (session.status === 'completed') return 'already_completed';
+    if (session.localDate !== input.localDate
+      || profile.currentDayIndex !== session.curriculumDayIndex) return 'stale_session';
+
+    const completedKeys = new Set(await tx.listCompletedTaskKeys(session.id));
+    if (requiredTaskKeys(session.mode).some((key) => !completedKeys.has(key))) {
+      return 'missing_tasks';
+    }
+
+    const transitioned = await tx.transitionSession(input);
+    if (transitioned === 0) return 'already_completed';
+    if (transitioned !== 1) throw new Error('Study session transition invariant failed');
+
+    const advanced = await tx.advanceProfile({
+      userId: input.userId,
+      currentDayIndex: session.curriculumDayIndex,
+      now: input.now,
+    });
+    if (advanced !== 1) throw new Error('Study profile advance invariant failed');
+    return 'completed';
+  });
 }
 
 export type TodayStudy = {
@@ -125,6 +194,7 @@ export class StudyService {
       localDate: date,
       curriculumDayIndex: profile.currentDayIndex,
       mode,
+      coreIsTimedReview: selection.coreIsTimedReview,
       now,
       tasks: [
         { taskKey: 'review', taskType: 'review', problemId: selection.reviewProblem?.id ?? null },
@@ -137,33 +207,40 @@ export class StudyService {
   }
 
   async setMode(userId: number, sessionId: number, mode: StudyMode): Promise<TodayStudy> {
-    const updated = await this.repository.setSessionMode(userId, sessionId, mode);
+    const now = this.now();
+    const updated = await this.repository.setSessionMode(userId, sessionId, localDateKey(now), mode);
     if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Active study session not found' });
     const profile = await this.repository.getOrCreateProfile(userId);
-    return this.buildToday(userId, profile, updated, this.now());
+    return this.buildToday(userId, profile, updated, now);
   }
 
   async completeTask(userId: number, sessionId: number, taskKey: StudyTaskKey): Promise<TodayStudy> {
     if (taskKey === 'review' || taskKey === 'problem') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Problem tasks complete through problem progress' });
     }
-    const changed = await this.repository.completeTask(userId, sessionId, taskKey, this.now());
+    const now = this.now();
+    const changed = await this.repository.completeTask(
+      userId, sessionId, localDateKey(now), taskKey, now,
+    );
     if (!changed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Active study task not found' });
     return this.today(userId);
   }
 
   async completeMatchingStudyProblemTasks(userId: number, problemId: number): Promise<number> {
-    return this.repository.completeProblemTasks(userId, problemId, this.now());
+    const now = this.now();
+    return this.repository.completeProblemTasks(userId, problemId, localDateKey(now), now);
   }
 
   async completeSession(userId: number, sessionId: number): Promise<TodayStudy> {
-    const session = await this.repository.findSessionById(userId, sessionId);
-    if (!session) throw new TRPCError({ code: 'NOT_FOUND', message: 'Study session not found' });
+    const now = this.now();
     const outcome = await this.repository.completeSessionAndAdvance(
-      userId, sessionId, requiredTaskKeys(session.mode), this.now(),
+      userId, sessionId, localDateKey(now), now,
     );
     if (outcome === 'missing_tasks') {
       throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Complete the required tasks first' });
+    }
+    if (outcome === 'stale_session') {
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'This study session is no longer active today' });
     }
     if (outcome === 'not_found') throw new TRPCError({ code: 'NOT_FOUND', message: 'Study session not found' });
     return this.today(userId);
@@ -184,7 +261,7 @@ export class StudyService {
       selection = {
         reviewProblem: reviewId ? byId.get(reviewId) ?? null : null,
         coreProblem: coreId ? byId.get(coreId) ?? null : null,
-        coreIsTimedReview: false,
+        coreIsTimedReview: session.coreIsTimedReview,
       };
     } else {
       selection = await this.selectProblems(userId, curriculumDay, now);
@@ -235,6 +312,11 @@ function insertId(result: unknown): number {
   return Number((header as { insertId?: number } | undefined)?.insertId ?? 0);
 }
 
+function affectedRows(result: unknown): number {
+  const header = Array.isArray(result) ? result[0] : result;
+  return Number((header as { affectedRows?: number } | undefined)?.affectedRows ?? 0);
+}
+
 const problemFields = {
   id: problems.id,
   frontendId: problems.frontendId,
@@ -244,7 +326,56 @@ const problemFields = {
   difficulty: problems.difficulty,
 };
 
-export function createDrizzleStudyRepository(db: DrizzleDb): StudyRepository {
+export function createDrizzleStudyCompletionConnector(db: DrizzleDb): StudyCompletionConnector {
+  return {
+    transaction: (work) => db.transaction(async (tx) => work({
+      async lockSession(userId, sessionId) {
+        const rows = await tx.select().from(studySessions).where(and(
+          eq(studySessions.id, sessionId), eq(studySessions.userId, userId),
+        )).limit(1).for('update');
+        return (rows[0] as StudySessionRecord | undefined) ?? null;
+      },
+      async lockProfile(userId) {
+        const rows = await tx.select().from(studyProfiles)
+          .where(eq(studyProfiles.userId, userId)).limit(1).for('update');
+        return (rows[0] as StudyProfileRecord | undefined) ?? null;
+      },
+      async listCompletedTaskKeys(sessionId) {
+        const rows = await tx.select({ key: studyTaskProgress.taskKey }).from(studyTaskProgress).where(and(
+          eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.status, 'completed'),
+        ));
+        return rows.map((row) => row.key as StudyTaskKey);
+      },
+      async transitionSession(input) {
+        const result = await tx.update(studySessions).set({
+          status: 'completed', completedAt: input.now,
+        }).where(and(
+          eq(studySessions.id, input.sessionId),
+          eq(studySessions.userId, input.userId),
+          eq(studySessions.localDate, input.localDate),
+          eq(studySessions.status, 'in_progress'),
+        ));
+        return affectedRows(result);
+      },
+      async advanceProfile(input) {
+        const result = await tx.update(studyProfiles).set({
+          currentDayIndex: sql`${studyProfiles.currentDayIndex} + 1`,
+          lastCompletedAt: input.now,
+        }).where(and(
+          eq(studyProfiles.userId, input.userId),
+          eq(studyProfiles.currentDayIndex, input.currentDayIndex),
+        ));
+        return affectedRows(result);
+      },
+    })),
+  };
+}
+
+export function createDrizzleStudyRepository(
+  db: DrizzleDb,
+  options: { completionConnector?: StudyCompletionConnector } = {},
+): StudyRepository {
+  const completionConnector = options.completionConnector ?? createDrizzleStudyCompletionConnector(db);
   return {
     async getOrCreateProfile(userId) {
       await db.insert(studyProfiles).values({ userId }).onDuplicateKeyUpdate({ set: { userId } });
@@ -265,7 +396,8 @@ export function createDrizzleStudyRepository(db: DrizzleDb): StudyRepository {
       return db.transaction(async (tx) => {
         const result = await tx.insert(studySessions).values({
           userId: input.userId, localDate: input.localDate,
-          curriculumDayIndex: input.curriculumDayIndex, mode: input.mode, startedAt: input.now,
+          curriculumDayIndex: input.curriculumDayIndex, mode: input.mode,
+          coreIsTimedReview: input.coreIsTimedReview, startedAt: input.now,
         }).onDuplicateKeyUpdate({ set: { userId: input.userId } });
         let id = insertId(result);
         if (!id) {
@@ -286,64 +418,60 @@ export function createDrizzleStudyRepository(db: DrizzleDb): StudyRepository {
       return await db.select().from(studyTaskProgress)
         .where(eq(studyTaskProgress.sessionId, sessionId)) as StudyTaskRecord[];
     },
-    async setSessionMode(userId, sessionId, mode) {
-      await db.update(studySessions).set({ mode }).where(and(
-        eq(studySessions.id, sessionId), eq(studySessions.userId, userId), eq(studySessions.status, 'in_progress'),
-      ));
-      const rows = await db.select().from(studySessions).where(and(
-        eq(studySessions.id, sessionId), eq(studySessions.userId, userId), eq(studySessions.status, 'in_progress'),
-      )).limit(1);
-      return (rows[0] as StudySessionRecord | undefined) ?? null;
-    },
-    async completeTask(userId, sessionId, taskKey, now) {
-      const sessions = await db.select({ id: studySessions.id }).from(studySessions).where(and(
-        eq(studySessions.id, sessionId), eq(studySessions.userId, userId), eq(studySessions.status, 'in_progress'),
-      )).limit(1);
-      if (!sessions[0]) return false;
-      await db.update(studyTaskProgress).set({ status: 'completed', completedAt: now }).where(and(
-        eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.taskKey, taskKey),
-      ));
-      const rows = await db.select({ id: studyTaskProgress.id }).from(studyTaskProgress).where(and(
-        eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.taskKey, taskKey),
-      )).limit(1);
-      return !!rows[0];
-    },
-    async completeProblemTasks(userId, problemId, now) {
-      const active = await db.select({ id: studySessions.id }).from(studySessions).where(and(
-        eq(studySessions.userId, userId), eq(studySessions.status, 'in_progress'),
-      ));
-      if (active.length === 0) return 0;
-      const activeIds = active.map((row) => row.id);
-      const matching = await db.select({ id: studyTaskProgress.id }).from(studyTaskProgress).where(and(
-        inArray(studyTaskProgress.sessionId, activeIds), eq(studyTaskProgress.problemId, problemId),
-        inArray(studyTaskProgress.taskType, ['review', 'problem']), eq(studyTaskProgress.status, 'pending'),
-      ));
-      if (matching.length === 0) return 0;
-      await db.update(studyTaskProgress).set({ status: 'completed', completedAt: now })
-        .where(inArray(studyTaskProgress.id, matching.map((row) => row.id)));
-      return matching.length;
-    },
-    async completeSessionAndAdvance(userId, sessionId, requiredKeys, now) {
+    async setSessionMode(userId, sessionId, localDate, mode) {
       return db.transaction(async (tx) => {
-        const sessions = await tx.select().from(studySessions).where(and(
+        const rows = await tx.select().from(studySessions).where(and(
           eq(studySessions.id, sessionId), eq(studySessions.userId, userId),
-        )).limit(1);
-        const session = sessions[0];
-        if (!session) return 'not_found' as const;
-        if (session.status === 'completed') return 'already_completed' as const;
-        const completed = await tx.select({ key: studyTaskProgress.taskKey }).from(studyTaskProgress).where(and(
-          eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.status, 'completed'),
+          eq(studySessions.localDate, localDate), eq(studySessions.status, 'in_progress'),
+        )).limit(1).for('update');
+        const session = rows[0] as StudySessionRecord | undefined;
+        if (!session) return null;
+        await tx.update(studySessions).set({ mode }).where(and(
+          eq(studySessions.id, sessionId), eq(studySessions.userId, userId),
+          eq(studySessions.localDate, localDate), eq(studySessions.status, 'in_progress'),
         ));
-        const completeKeys = new Set(completed.map((row) => row.key));
-        if (requiredKeys.some((key) => !completeKeys.has(key))) return 'missing_tasks' as const;
-        await tx.update(studySessions).set({ status: 'completed', completedAt: now }).where(and(
-          eq(studySessions.id, sessionId), eq(studySessions.status, 'in_progress'),
-        ));
-        await tx.update(studyProfiles).set({
-          currentDayIndex: sql`${studyProfiles.currentDayIndex} + 1`, lastCompletedAt: now,
-        }).where(eq(studyProfiles.userId, userId));
-        return 'completed' as const;
+        return { ...session, mode };
       });
+    },
+    async completeTask(userId, sessionId, localDate, taskKey, now) {
+      return db.transaction(async (tx) => {
+        const sessions = await tx.select({ id: studySessions.id }).from(studySessions).where(and(
+          eq(studySessions.id, sessionId), eq(studySessions.userId, userId),
+          eq(studySessions.localDate, localDate), eq(studySessions.status, 'in_progress'),
+        )).limit(1).for('update');
+        if (!sessions[0]) return false;
+        await tx.update(studyTaskProgress).set({ status: 'completed', completedAt: now }).where(and(
+          eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.taskKey, taskKey),
+        ));
+        const rows = await tx.select({ id: studyTaskProgress.id }).from(studyTaskProgress).where(and(
+          eq(studyTaskProgress.sessionId, sessionId), eq(studyTaskProgress.taskKey, taskKey),
+        )).limit(1);
+        return !!rows[0];
+      });
+    },
+    async completeProblemTasks(userId, problemId, localDate, now) {
+      return db.transaction(async (tx) => {
+        const active = await tx.select({ id: studySessions.id }).from(studySessions).where(and(
+          eq(studySessions.userId, userId), eq(studySessions.localDate, localDate),
+          eq(studySessions.status, 'in_progress'),
+        )).for('update');
+        if (active.length === 0) return 0;
+        const activeIds = active.map((row) => row.id);
+        const matching = await tx.select({ id: studyTaskProgress.id }).from(studyTaskProgress).where(and(
+          inArray(studyTaskProgress.sessionId, activeIds), eq(studyTaskProgress.problemId, problemId),
+          inArray(studyTaskProgress.taskType, ['review', 'problem']), eq(studyTaskProgress.status, 'pending'),
+        ));
+        if (matching.length === 0) return 0;
+        const result = await tx.update(studyTaskProgress).set({ status: 'completed', completedAt: now })
+          .where(and(
+            inArray(studyTaskProgress.id, matching.map((row) => row.id)),
+            eq(studyTaskProgress.status, 'pending'),
+          ));
+        return affectedRows(result);
+      });
+    },
+    async completeSessionAndAdvance(userId, sessionId, localDate, now) {
+      return completeStudySessionTransaction(completionConnector, { userId, sessionId, localDate, now });
     },
     async countCompletedSessions(userId, start, end) {
       const rows = await db.select({ id: studySessions.id }).from(studySessions).where(and(
@@ -393,5 +521,7 @@ export async function completeMatchingStudyProblemTasks(
   problemId: number,
   now: Date = new Date(),
 ): Promise<number> {
-  return createDrizzleStudyRepository(db).completeProblemTasks(userId, problemId, now);
+  return createDrizzleStudyRepository(db).completeProblemTasks(
+    userId, problemId, localDateKey(now), now,
+  );
 }

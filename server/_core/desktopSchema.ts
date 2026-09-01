@@ -34,6 +34,7 @@ export const DESKTOP_STUDY_DDL = [
     curriculumDayIndex int NOT NULL,
     mode enum('standard','minimum') NOT NULL,
     status enum('in_progress','completed') NOT NULL DEFAULT 'in_progress',
+    coreIsTimedReview boolean NOT NULL DEFAULT false,
     startedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completedAt timestamp NULL,
     createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -61,6 +62,20 @@ export const DESKTOP_STUDY_DDL = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ] as const;
 
+const TIMED_REVIEW_COLUMN_QUERY = `SELECT 1 AS present
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'studySessions'
+    AND COLUMN_NAME = 'coreIsTimedReview'
+  LIMIT 1`;
+
+const ADD_TIMED_REVIEW_COLUMN = `ALTER TABLE studySessions
+  ADD COLUMN coreIsTimedReview boolean NOT NULL DEFAULT false AFTER status`;
+
+function queryRows(result: unknown): unknown[] {
+  return Array.isArray(result) && Array.isArray(result[0]) ? result[0] : [];
+}
+
 function databaseConfig(databaseUrl: string) {
   const url = new URL(databaseUrl);
   const database = url.pathname.replace(/^\//, '');
@@ -82,6 +97,10 @@ export async function ensureDesktopSchema(args: {
   const connection = await connect(databaseConfig(args.databaseUrl));
   try {
     for (const statement of DESKTOP_STUDY_DDL) await connection.query(statement);
+    const existingTimedReviewColumn = await connection.query(TIMED_REVIEW_COLUMN_QUERY);
+    if (queryRows(existingTimedReviewColumn).length === 0) {
+      await connection.query(ADD_TIMED_REVIEW_COLUMN);
+    }
   } finally {
     await connection.end();
   }

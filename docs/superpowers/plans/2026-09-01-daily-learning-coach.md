@@ -203,7 +203,7 @@ Expected: FAIL with `no such table: studyProfiles`.
 
 - [ ] **Step 3: Add the Drizzle schema, guarded migration, and SQLite mirror**
 
-Define all columns and enums exactly as specified. `studyTaskProgress` also has a nullable `problemId` foreign key used only by review/problem tasks, so later progress integration can match a solved problem without parsing task keys. Add indexes for `(userId,status)`, `(userId,localDate)`, `sessionId`, and `problemId`. The migration must use `CREATE TABLE IF NOT EXISTS` and named unique keys. Add equivalent SQLite tables to `SCHEMA_SQL`.
+Define all columns and enums exactly as specified. `studyTaskProgress` also has a nullable `problemId` foreign key used only by review/problem tasks, so later progress integration can match a solved problem without parsing task keys. Add indexes for `(userId,status)`, `(userId,localDate)`, `sessionId`, and `problemId`. The migration must use `CREATE TABLE IF NOT EXISTS` and named unique keys. Add equivalent SQLite tables to `SCHEMA_SQL`. The timed-review selection flag is persisted on `studySessions`; existing installations receive it through an additive migration and the desktop upgrade checks `information_schema` before issuing the one-time `ALTER TABLE`.
 
 - [ ] **Step 4: Run the schema test**
 

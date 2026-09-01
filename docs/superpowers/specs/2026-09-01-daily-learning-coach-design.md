@@ -97,6 +97,7 @@ Curriculum validation runs in tests and verifies all 60 indices, unique keys, re
 - `curriculumDayIndex`
 - `mode`: `standard | minimum`
 - `status`: `in_progress | completed`
+- `coreIsTimedReview`: durable boolean preserving the core selection label across resumes
 - `startedAt`, `completedAt`, timestamps
 - unique `(userId, localDate)`
 

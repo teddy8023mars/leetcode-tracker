@@ -6,7 +6,9 @@ type Profile = Awaited<ReturnType<StudyRepository['getOrCreateProfile']>>;
 type Session = NonNullable<Awaited<ReturnType<StudyRepository['findSessionByDate']>>>;
 type Task = Awaited<ReturnType<StudyRepository['listTasks']>>[number];
 
-function createMemoryRepository() {
+function createMemoryRepository(options: {
+  progressBySlug?: Record<string, string | undefined>;
+} = {}) {
   let profile: Profile | null = null;
   const sessions: Session[] = [];
   const tasks: Task[] = [];
@@ -34,6 +36,7 @@ function createMemoryRepository() {
       const session: Session = {
         id: nextSessionId++, userId: input.userId, localDate: input.localDate,
         curriculumDayIndex: input.curriculumDayIndex, mode: input.mode,
+        coreIsTimedReview: input.coreIsTimedReview,
         status: 'in_progress', startedAt: input.now, completedAt: null,
       };
       sessions.push(session);
@@ -44,21 +47,24 @@ function createMemoryRepository() {
       return session;
     },
     async listTasks(sessionId) { return tasks.filter((task) => task.sessionId === sessionId); },
-    async setSessionMode(userId, sessionId, mode) {
-      const session = sessions.find((item) => item.userId === userId && item.id === sessionId && item.status === 'in_progress');
+    async setSessionMode(userId, sessionId, localDate, mode) {
+      const session = sessions.find((item) => item.userId === userId && item.id === sessionId
+        && item.localDate === localDate && item.status === 'in_progress');
       if (!session) return null;
       session.mode = mode;
       return session;
     },
-    async completeTask(userId, sessionId, taskKey, now) {
-      const session = sessions.find((item) => item.userId === userId && item.id === sessionId && item.status === 'in_progress');
+    async completeTask(userId, sessionId, localDate, taskKey, now) {
+      const session = sessions.find((item) => item.userId === userId && item.id === sessionId
+        && item.localDate === localDate && item.status === 'in_progress');
       const task = session && tasks.find((item) => item.sessionId === sessionId && item.taskKey === taskKey);
       if (!task) return false;
       task.status = 'completed'; task.completedAt = now;
       return true;
     },
-    async completeProblemTasks(userId, problemId, now) {
-      const activeIds = new Set(sessions.filter((session) => session.userId === userId && session.status === 'in_progress').map((session) => session.id));
+    async completeProblemTasks(userId, problemId, localDate, now) {
+      const activeIds = new Set(sessions.filter((session) => session.userId === userId
+        && session.localDate === localDate && session.status === 'in_progress').map((session) => session.id));
       let changed = 0;
       for (const task of tasks) {
         if (activeIds.has(task.sessionId) && task.problemId === problemId && (task.taskType === 'review' || task.taskType === 'problem') && task.status === 'pending') {
@@ -67,11 +73,17 @@ function createMemoryRepository() {
       }
       return changed;
     },
-    async completeSessionAndAdvance(userId, sessionId, requiredKeys, now) {
+    async completeSessionAndAdvance(userId, sessionId, localDate, now) {
       const session = sessions.find((item) => item.userId === userId && item.id === sessionId);
       if (!session) return 'not_found';
       if (session.status === 'completed') return 'already_completed';
+      if (session.localDate !== localDate || profile?.currentDayIndex !== session.curriculumDayIndex) {
+        return 'stale_session';
+      }
       const completeKeys = new Set(tasks.filter((task) => task.sessionId === sessionId && task.status === 'completed').map((task) => task.taskKey));
+      const requiredKeys = session.mode === 'minimum'
+        ? ['review', 'dsa'] as const
+        : ['review', 'dsa', 'problem', 'career'] as const;
       if (requiredKeys.some((key) => !completeKeys.has(key))) return 'missing_tasks';
       session.status = 'completed'; session.completedAt = now;
       profile!.currentDayIndex += 1; profile!.lastCompletedAt = now;
@@ -82,11 +94,16 @@ function createMemoryRepository() {
     },
     async findProblemsBySlugs(slugs) { return problems.filter((problem) => slugs.includes(problem.titleSlug)); },
     async findProblemsByIds(ids) { return problems.filter((problem) => ids.includes(problem.id)); },
-    async getProgressBySlugs() { return {}; },
+    async getProgressBySlugs() { return options.progressBySlug ?? {}; },
     async findDueReview() { return null; },
     async findOldestCompleted() { return null; },
   };
-  return { repository, getProfile: () => profile };
+  return {
+    repository,
+    getProfile: () => profile,
+    getSessions: () => sessions,
+    getTasks: () => tasks,
+  };
 }
 
 describe('StudyService', () => {
@@ -125,5 +142,69 @@ describe('StudyService', () => {
     await service.completeSession(1, today.session!.id);
 
     expect(memory.getProfile()?.currentDayIndex).toBe(1);
+  });
+
+  it('rejects every mutation against an unfinished prior-date session', async () => {
+    const memory = createMemoryRepository();
+    let now = new Date(2026, 8, 1, 8);
+    const service = new StudyService(memory.repository, () => now);
+    const old = await service.startToday(1, 'standard');
+
+    await service.completeMatchingStudyProblemTasks(1, old.reviewProblem!.id);
+    await service.completeTask(1, old.session!.id, 'dsa');
+    await service.completeTask(1, old.session!.id, 'career');
+    now = new Date(2026, 8, 2, 8);
+    const current = await service.startToday(1, 'standard');
+
+    await expect(service.setMode(1, old.session!.id, 'minimum')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(service.completeTask(1, old.session!.id, 'dsa')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(service.completeSession(1, old.session!.id)).rejects.toMatchObject({
+      code: 'PRECONDITION_FAILED',
+    });
+    expect(memory.getProfile()?.currentDayIndex).toBe(0);
+    expect(current.session?.curriculumDayIndex).toBe(0);
+  });
+
+  it('matches problem progress only to today\'s unfinished session', async () => {
+    const memory = createMemoryRepository();
+    let now = new Date(2026, 8, 1, 8);
+    const service = new StudyService(memory.repository, () => now);
+    const old = await service.startToday(1, 'standard');
+
+    now = new Date(2026, 8, 2, 8);
+    const current = await service.startToday(1, 'standard');
+    const changed = await service.completeMatchingStudyProblemTasks(1, current.coreProblem!.id);
+
+    expect(changed).toBe(2);
+    const oldProblemTasks = memory.getTasks().filter((task) => (
+      task.sessionId === old.session!.id && (task.taskKey === 'review' || task.taskKey === 'problem')
+    ));
+    expect(oldProblemTasks.every((task) => task.status === 'pending')).toBe(true);
+    const currentProblemTasks = memory.getTasks().filter((task) => (
+      task.sessionId === current.session!.id && (task.taskKey === 'review' || task.taskKey === 'problem')
+    ));
+    expect(currentProblemTasks.every((task) => task.status === 'completed')).toBe(true);
+  });
+
+  it('preserves the timed-review label after an all-completed session is persisted', async () => {
+    const memory = createMemoryRepository({
+      progressBySlug: {
+        'two-sum': 'done',
+        'contains-duplicate': 'done',
+        'valid-anagram': 'done',
+      },
+    });
+    const service = new StudyService(memory.repository, () => new Date(2026, 8, 1, 8));
+
+    const started = await service.startToday(1, 'standard');
+    const resumed = await service.today(1);
+
+    expect(started.coreProblem?.titleSlug).toBe('two-sum');
+    expect(started.coreIsTimedReview).toBe(true);
+    expect(resumed.coreIsTimedReview).toBe(true);
   });
 });
