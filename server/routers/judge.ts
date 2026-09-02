@@ -174,6 +174,41 @@ async function loadOrGenerateSuite(problemId: number): Promise<{ suite: Generate
   return { suite, cached: false };
 }
 
+async function loadExampleSuite(problemId: number): Promise<GeneratedSuite> {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+  const problemRows = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
+  const problem = problemRows[0];
+  if (!problem) throw new TRPCError({ code: "NOT_FOUND", message: "Problem not found" });
+
+  const official = buildOfficialExampleSuite({
+    titleSlug: problem.titleSlug,
+    titleEn: problem.titleEn,
+    contentEn: problem.contentEn,
+    contentZh: problem.contentZh,
+    difficulty: problem.difficulty,
+    codeSnippetsJson: problem.codeSnippetsJson,
+    exampleTestcases: problem.exampleTestcases,
+  });
+  if (official && official.cases.length > 0) return official;
+
+  const cachedRows = (await db
+    .select()
+    .from(problemTestcases)
+    .where(eq(problemTestcases.problemId, problemId))
+    .limit(1)) as ProblemTestcase[];
+  const cached = cachedRows[0]?.suiteJson as GeneratedSuite | undefined;
+  if (cached?.cases?.length) {
+    return { ...cached, cases: cached.cases.slice(0, 3) };
+  }
+
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "No local example testcases are available for this problem.",
+  });
+}
+
 async function judgeOnce(
   language: SupportedLanguage,
   userCode: string,
@@ -299,6 +334,38 @@ async function judgeOnce(
 }
 
 export const judgeRouter = router({
+  /**
+   * Run visible examples for fast feedback. This never writes a submission or
+   * changes progress, and it never calls the model to generate cases.
+   */
+  runExamples: protectedProcedure
+    .input(
+      z.object({
+        problemId: z.number().int().positive(),
+        language: LanguageSchema,
+        code: z.string().min(1).max(50_000),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const suite = await loadExampleSuite(input.problemId);
+      const outcome = await judgeOnce(input.language, input.code, suite);
+      return {
+        mode: "run" as const,
+        verdict: outcome.verdict,
+        passedCount: outcome.passedCount,
+        totalCount: outcome.totalCount,
+        runtimeMs: outcome.runtimeMs,
+        firstFail: outcome.firstFail ?? null,
+        cases: outcome.cases.map((caseResult) => ({
+          ...caseResult,
+          input: suite.cases[caseResult.i]?.input ?? null,
+          expected: suite.cases[caseResult.i]?.expected ?? null,
+        })),
+        stderr: (outcome.stderr || "").slice(0, 4000),
+        compileStderr: outcome.compileStderr ?? null,
+      };
+    }),
+
   /**
    * Submit user code, run against (cached or freshly generated) testcases,
    * persist a Submission row, return the verdict.

@@ -21,7 +21,8 @@ export interface BuildHarnessOpts {
 }
 
 const PYTHON_HARNESS = `
-import sys, json, traceback, time
+import sys, json, traceback, time, io
+from contextlib import redirect_stdout
 # Pre-seed the same standard names LeetCode injects, so users can write
 # def twoSum(self, nums: List[int], target: int) -> List[int]: without an explicit import.
 from typing import List, Dict, Set, Tuple, Optional, Deque, Any, Union, Callable, Iterable, Iterator
@@ -81,6 +82,26 @@ class SortedList(list):
         return bisect_right([self._key(item) for item in self], self._key(value))
     def count(self, value):
         return super().count(value)
+
+class _LimitedStdout(io.StringIO):
+    def __init__(self, limit=8000):
+        super().__init__()
+        self.limit = limit
+        self.size = 0
+        self.truncated = False
+    def write(self, value):
+        text = str(value)
+        remaining = self.limit - self.size
+        if remaining > 0:
+            kept = text[:remaining]
+            super().write(kept)
+            self.size += len(kept)
+        if len(text) > max(remaining, 0):
+            self.truncated = True
+        return len(text)
+    def captured(self):
+        suffix = "\\n...[debug output truncated]" if self.truncated else ""
+        return self.getvalue() + suffix
 
 def _list_to_linked(arr):
     if not arr: return None
@@ -372,9 +393,11 @@ if not class_name and not input_adapter and isinstance(_first_case_args, list) a
     _probe_inst = Solution()
     _probe_method = getattr(_probe_inst, method_name, None)
     if _probe_method:
+        _probe_stdout = _LimitedStdout()
         try:
             # A probe must never mutate the real testcase before the measured run.
-            _probe_method(*copy.deepcopy(_first_case_args))
+            with redirect_stdout(_probe_stdout):
+                _probe_method(*copy.deepcopy(_first_case_args))
         except AttributeError as _probe_error:
             # Only retry when raw arrays clearly failed because the solution expects
             # LeetCode node objects. A normal user TypeError is a code error, not a
@@ -389,7 +412,8 @@ if not class_name and not input_adapter and isinstance(_first_case_args, list) a
                 _linked_args = [_list_to_linked(a) if isinstance(a, list) else a for a in _first_case_args]
                 try:
                     _probe_inst2 = Solution()
-                    getattr(_probe_inst2, method_name)(*_linked_args)
+                    with redirect_stdout(_probe_stdout):
+                        getattr(_probe_inst2, method_name)(*_linked_args)
                     _convert_mode = 'linked'
                 except (TypeError, AttributeError):
                     # Try nested linked: list of lists -> list of ListNodes
@@ -399,7 +423,8 @@ if not class_name and not input_adapter and isinstance(_first_case_args, list) a
                     ]
                     try:
                         _probe_inst3 = Solution()
-                        getattr(_probe_inst3, method_name)(*_nested_args)
+                        with redirect_stdout(_probe_stdout):
+                            getattr(_probe_inst3, method_name)(*_nested_args)
                         _convert_mode = 'nested_linked'
                     except (TypeError, AttributeError):
                         _convert_mode = 'tree'
@@ -441,38 +466,42 @@ for i, c in enumerate(cases):
     if class_name:
         expected = c.get("expected")
         t0 = time.time()
+        case_stdout = _LimitedStdout()
         try:
-            operations = args[0]
-            operation_args = args[1]
-            if not isinstance(operations, list) or not isinstance(operation_args, list) or len(operations) != len(operation_args):
-                raise ValueError("operation suite must contain equally-sized operation and argument arrays")
-            instance = None
-            results = []
-            target_class = _user_ns[class_name]
-            for operation, call_args in zip(operations, operation_args):
-                if not isinstance(call_args, list):
-                    call_args = [call_args]
-                if operation == class_name:
-                    if input_adapter == "design-binary-tree" and call_args and isinstance(call_args[0], list):
-                        call_args = [_list_to_tree(call_args[0]), *call_args[1:]]
-                    elif input_adapter == "design-iterator" and call_args and isinstance(call_args[0], list):
-                        call_args = [Iterator(call_args[0]), *call_args[1:]]
-                    instance = target_class(*call_args)
-                    results.append(None)
-                else:
-                    if instance is None:
-                        raise ValueError("constructor operation must run first")
-                    results.append(getattr(instance, operation)(*call_args))
+            with redirect_stdout(case_stdout):
+                operations = args[0]
+                operation_args = args[1]
+                if not isinstance(operations, list) or not isinstance(operation_args, list) or len(operations) != len(operation_args):
+                    raise ValueError("operation suite must contain equally-sized operation and argument arrays")
+                instance = None
+                results = []
+                target_class = _user_ns[class_name]
+                for operation, call_args in zip(operations, operation_args):
+                    if not isinstance(call_args, list):
+                        call_args = [call_args]
+                    if operation == class_name:
+                        if input_adapter == "design-binary-tree" and call_args and isinstance(call_args[0], list):
+                            call_args = [_list_to_tree(call_args[0]), *call_args[1:]]
+                        elif input_adapter == "design-iterator" and call_args and isinstance(call_args[0], list):
+                            call_args = [Iterator(call_args[0]), *call_args[1:]]
+                        instance = target_class(*call_args)
+                        results.append(None)
+                    else:
+                        if instance is None:
+                            raise ValueError("constructor operation must run first")
+                        results.append(getattr(instance, operation)(*call_args))
             actual_norm = norm(results)
             elapsed_ms = int((time.time() - t0) * 1000)
             ok = validate_design_results(operations, operation_args, results, expected)
             if ok:
                 passed += 1
-            print(json.dumps({"i": i, "ok": ok, "actual": actual_norm, "elapsedMs": elapsed_ms, "error": None}))
+            print(json.dumps({"i": i, "ok": ok, "actual": actual_norm, "elapsedMs": elapsed_ms,
+                              "error": None, "stdout": case_stdout.captured()}))
         except Exception as e:
             elapsed_ms = int((time.time() - t0) * 1000)
             print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": elapsed_ms,
-                              "error": str(e) + "\\n" + traceback.format_exc()[-1500:]}))
+                              "error": str(e) + "\\n" + traceback.format_exc()[-1500:],
+                              "stdout": case_stdout.captured()}))
         continue
     adapter_nodes = None
     if input_adapter == "linked-list-cycle":
@@ -529,8 +558,10 @@ for i, c in enumerate(cases):
                           "error": "Solution has no method '" + method_name + "'"}))
         continue
     t0 = time.time()
+    case_stdout = _LimitedStdout()
     try:
-        actual = method(*args)
+        with redirect_stdout(case_stdout):
+            actual = method(*args)
         if result_adapter == "linked-list-node-index":
             actual = adapter_nodes.index(actual) if actual in adapter_nodes else -1
         elif result_adapter == "tree-node-value":
@@ -541,7 +572,8 @@ for i, c in enumerate(cases):
     except Exception as e:
         elapsed_ms = int((time.time() - t0) * 1000)
         print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": elapsed_ms,
-                          "error": str(e) + "\\n" + traceback.format_exc()[-1500:]}))
+                          "error": str(e) + "\\n" + traceback.format_exc()[-1500:],
+                          "stdout": case_stdout.captured()}))
         continue
     actual_norm = norm(actual)
     ok = validate_semantic(actual, args, original_args, expected) if validator else answers_equal(actual_norm, expected)
@@ -554,7 +586,8 @@ for i, c in enumerate(cases):
             actual_out = actual_serialized[:4000] + "...[truncated]"
     except Exception:
         actual_out = repr(actual_norm)[:4000]
-    print(json.dumps({"i": i, "ok": ok, "actual": actual_out, "elapsedMs": elapsed_ms, "error": None}))
+    print(json.dumps({"i": i, "ok": ok, "actual": actual_out, "elapsedMs": elapsed_ms,
+                      "error": None, "stdout": case_stdout.captured()}))
 
 print(json.dumps({"summary": True, "passed": passed, "total": total}))
 `;
@@ -604,6 +637,7 @@ export interface CaseLine {
   actual: unknown;
   elapsedMs: number;
   error: string | null;
+  stdout?: string;
 }
 export interface SummaryLine {
   summary: true;

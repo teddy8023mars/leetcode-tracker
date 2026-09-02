@@ -43,6 +43,54 @@ async function runPython(userCode: string, suite: {
 }
 
 describe("judge end-to-end (python)", () => {
+  it("captures print output separately for each test case", async () => {
+    const code = `
+class Solution:
+    def inspect(self, nums):
+        print("nums =", nums)
+        return len(nums)
+`;
+    const { parsed } = await runPython(code, {
+      methodName: "inspect",
+      cases: [
+        { input: [[1, 2, 3]], expected: 3 },
+        { input: [[9]], expected: 1 },
+      ],
+    });
+
+    expect(parsed.summary).toMatchObject({ passed: 2, total: 2 });
+    expect(parsed.parseErrors).toEqual([]);
+    expect(parsed.cases.map((item) => item.stdout)).toEqual([
+      "nums = [1, 2, 3]\n",
+      "nums = [9]\n",
+    ]);
+  });
+
+  it("captures print output from design-problem operations", async () => {
+    const code = `
+class Counter:
+    def __init__(self, value):
+        print("start", value)
+        self.value = value
+    def add(self, amount):
+        self.value += amount
+        print("value", self.value)
+        return self.value
+`;
+    const { parsed } = await runPython(code, {
+      methodName: 'unused',
+      className: 'Counter',
+      cases: [{
+        input: [['Counter', 'add'], [[2], [3]]],
+        expected: [null, 5],
+      }],
+    });
+
+    expect(parsed.summary).toMatchObject({ passed: 1, total: 1 });
+    expect(parsed.parseErrors).toEqual([]);
+    expect(parsed.cases[0]?.stdout).toBe('start 2\nvalue 5\n');
+  });
+
   it("provides the common helper names injected by LeetCode's Python runtime", async () => {
     const code = `
 class Solution:

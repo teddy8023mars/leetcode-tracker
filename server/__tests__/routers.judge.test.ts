@@ -28,6 +28,69 @@ const mockUser = {
 };
 
 describe('routers/judge', () => {
+  it('runs official examples with debug output without creating a submission', async () => {
+    const limit = vi.fn().mockResolvedValueOnce([{
+      id: 704,
+      titleSlug: 'binary-search',
+      titleEn: 'Binary Search',
+      titleZh: '二分查找',
+      contentEn: 'Example 1',
+      contentZh: null,
+      difficulty: 'Easy',
+      codeSnippetsJson: [],
+      exampleTestcases: '[-1,0,3,5,9,12]\n9',
+    }]);
+    const insert = vi.fn();
+    const fakeDb = {
+      select: vi.fn(() => ({ from: vi.fn(() => ({ where: vi.fn(() => ({ limit })) })) })),
+      insert,
+    };
+    vi.spyOn(db, 'getDb').mockResolvedValue(fakeDb as never);
+    vi.spyOn(db, 'markProblemSolved').mockResolvedValue(undefined);
+    vi.mocked(buildOfficialExampleSuite).mockReturnValueOnce({
+      methodName: 'search',
+      cases: [{ input: [[-1, 0, 3, 5, 9, 12], 9], expected: 4 }],
+      source: 'official-examples',
+    });
+    vi.mocked(runUserCode).mockResolvedValueOnce({
+      ok: true,
+      reason: 'ok',
+      stdout: '{"i":0,"ok":true,"actual":4,"elapsedMs":1,"error":null,"stdout":"nums = [-1, 0, 3, 5, 9, 12]\\n"}\n{"summary":true,"passed":1,"total":1}',
+      stderr: '',
+      timeMs: 5,
+      exitCode: 0,
+      signal: null,
+    });
+    const caller = judgeRouter.createCaller({
+      user: mockUser,
+      req: {} as Request,
+      res: {} as Response,
+    });
+    const runExamples = (caller as unknown as { runExamples?: Function }).runExamples;
+
+    expect(runExamples).toBeTypeOf('function');
+    const result = await runExamples!({
+      problemId: 704,
+      language: 'python',
+      code: 'class Solution: pass',
+    });
+
+    expect(result).toMatchObject({
+      mode: 'run',
+      verdict: 'accepted',
+      passedCount: 1,
+      totalCount: 1,
+      cases: [{
+        input: [[-1, 0, 3, 5, 9, 12], 9],
+        expected: 4,
+        actual: 4,
+        stdout: 'nums = [-1, 0, 3, 5, 9, 12]\n',
+      }],
+    });
+    expect(insert).not.toHaveBeenCalled();
+    expect(db.markProblemSolved).not.toHaveBeenCalled();
+  });
+
   it('preserves suite judging metadata through the real submit route', async () => {
     const limit = vi.fn()
       .mockResolvedValueOnce([])
