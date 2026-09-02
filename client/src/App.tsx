@@ -11,16 +11,22 @@ import { ProblemDetail } from './pages/ProblemDetail';
 import { SyncStatus } from './pages/SyncStatus';
 import { Settings } from './pages/Settings';
 import { ReviewDashboard } from './pages/ReviewDashboard';
+import { TodayPage } from './pages/TodayPage';
+import { Roadmap } from './pages/Roadmap';
 
 function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/review" />
+        <Redirect to="/today" />
+      </Route>
+      <Route path="/today">
+        <TodayPage />
       </Route>
       <Route path="/review">
         <ReviewDashboard />
       </Route>
+      <Route path="/roadmap/:slug">{params => <Roadmap slug={params.slug} />}</Route>
       <Route path="/problems">
         <ProblemList />
       </Route>

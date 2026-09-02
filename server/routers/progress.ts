@@ -7,6 +7,7 @@ import { getDb } from '../db';
 import { problems, userProgress } from '../../drizzle/schema';
 import { ProgressStatusSchema } from '@shared/problemTypes';
 import { sm2 } from '../progress/sm2';
+import { completeMatchingStudyProblemTasks } from '../study/service';
 
 const LOCAL_USER_ID = 1;
 
@@ -162,6 +163,8 @@ export const progressRouter = router({
               firstCompletedAt: prev?.firstCompletedAt ?? now,
             },
           });
+
+        await completeMatchingStudyProblemTasks(db, LOCAL_USER_ID, problemId, now);
       } else {
         await db
           .insert(userProgress)

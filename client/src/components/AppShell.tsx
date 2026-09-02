@@ -3,9 +3,12 @@ import { useT, useLang } from '@/contexts/LangContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BlueprintBackground } from './BlueprintBackground';
 import { Button } from '@/components/ui/button';
+import { useMouseHistoryNavigation } from '@/hooks/useMouseHistoryNavigation';
 import type { ReactNode } from 'react';
 
 const NAV = [
+  { href: '/today', key: 'nav.today' },
+  { href: '/roadmap/code-thinking', key: 'nav.roadmap' },
   { href: '/review', key: 'nav.review' },
   { href: '/problems', key: 'nav.problems' },
   { href: '/sync', key: 'nav.sync' },
@@ -13,6 +16,7 @@ const NAV = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useMouseHistoryNavigation();
   const t = useT();
   const { lang, setLang } = useLang();
   const { theme, setTheme, resolved } = useTheme();

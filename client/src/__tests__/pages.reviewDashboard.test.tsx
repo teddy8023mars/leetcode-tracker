@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { LangProvider } from '@/contexts/LangContext';
 import { ReviewDashboard } from '@/pages/ReviewDashboard';
 import { trpc } from '@/lib/trpc';
@@ -54,6 +55,7 @@ const dashboardData = {
 describe('ReviewDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/review');
     window.localStorage.removeItem('lt.lang');
     (trpc.progress.dashboard.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: dashboardData,
@@ -125,5 +127,15 @@ describe('ReviewDashboard', () => {
     expect(screen.getByText('Recent submissions')).toBeInTheDocument();
     expect(screen.getByText('Accepted')).toBeInTheDocument();
     expect(screen.getByText('12/12')).toBeInTheDocument();
+  });
+
+  it('records Review as the origin when opening a problem', async () => {
+    render(<LangProvider><ReviewDashboard /></LangProvider>);
+
+    await userEvent.click(screen.getByRole('link', { name: /Two Sum/ }));
+
+    expect(window.history.state).toMatchObject({
+      appNavigationOrigin: { section: 'review', href: '/review' },
+    });
   });
 });

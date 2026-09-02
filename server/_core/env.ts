@@ -8,16 +8,12 @@ export const ENV = {
   /** Single-user desktop build: allow the local-dev auto-login even in production. */
   isLocalDesktop: process.env.LOCAL_DESKTOP === "1",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  forgeApiKey:
+    process.env.BUILT_IN_FORGE_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? "",
+  forgeModel:
+    process.env.BUILT_IN_FORGE_MODEL ?? process.env.DEEPSEEK_MODEL ?? "",
 };
 
-/**
- * True when the app runs without any login: a local dev server or the
- * single-user desktop build, neither of which has an OAuth server to sign in
- * against. In this mode the context auto-provisions a local user and the
- * owner/admin checks are skipped, so sync and judging work out of the box.
- * Reads process.env directly so tests can toggle it.
- */
 /**
  * True when an LLM endpoint is actually usable. AI features (test-case
  * generation, AI solutions, translation) are optional: without a key the app
@@ -26,10 +22,21 @@ export const ENV = {
  * treat it as unconfigured rather than sending it to a stranger's endpoint.
  */
 export function isLlmConfigured(): boolean {
-  const key = (process.env.BUILT_IN_FORGE_API_KEY ?? "").trim();
+  const key = (
+    process.env.BUILT_IN_FORGE_API_KEY ??
+    process.env.DEEPSEEK_API_KEY ??
+    ""
+  ).trim();
   return key.length > 0 && key !== "unused";
 }
 
+/**
+ * True when the app runs without any login: a local dev server or the
+ * single-user desktop build, neither of which has an OAuth server to sign in
+ * against. In this mode the context auto-provisions a local user and the
+ * owner/admin checks are skipped, so sync and judging work out of the box.
+ * Reads process.env directly so tests can toggle it.
+ */
 export function isLocalNoAuthMode(): boolean {
   if (process.env.OAUTH_SERVER_URL) return false;
   return (

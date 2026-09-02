@@ -174,6 +174,7 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   });
   const [seededLang, setSeededLang] = useState<Lang>(defaultLang);
   const [openSubmissionId, setOpenSubmissionId] = useState<number | null>(null);
+  const [lastAction, setLastAction] = useState<'run' | 'submit'>('run');
 
   // Reseed code when language switches.
   useEffect(() => {
@@ -195,7 +196,8 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
   }, [code]);
 
   const utils = trpc.useUtils();
-  const runMut = trpc.judge.run.useMutation({
+  const runExamplesMut = trpc.judge.runExamples.useMutation();
+  const submitMut = trpc.judge.run.useMutation({
     onSuccess: () => {
       utils.judge.listSubmissions.invalidate({ problemId });
       utils.progress.invalidate();
@@ -208,13 +210,19 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
     },
   });
 
-  // Ctrl+Enter to submit
+  // Ctrl/Cmd+Enter runs examples; adding Shift submits the full solution.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && code.trim().length > 0) {
         e.preventDefault();
-        if (canJudge && !runMut.isPending) {
-          runMut.mutate({ problemId, language: language as JudgeLang, code });
+        if (canJudge && !runExamplesMut.isPending && !submitMut.isPending) {
+          if (e.shiftKey) {
+            setLastAction('submit');
+            submitMut.mutate({ problemId, language: language as JudgeLang, code });
+          } else {
+            setLastAction('run');
+            runExamplesMut.mutate({ problemId, language: language as JudgeLang, code });
+          }
         } else if (!canJudge && !runSqlMut.isPending) {
           runSqlMut.mutate({ problemId, code });
         }
@@ -222,14 +230,15 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [code, language, problemId, runMut, runSqlMut, canJudge]);
+  }, [code, language, problemId, runExamplesMut, submitMut, runSqlMut, canJudge]);
 
   const submissions = trpc.judge.listSubmissions.useQuery(
     { problemId, limit: 10 },
     { enabled: isLoggedIn, staleTime: 5_000 },
   );
 
-  const result = runMut.data;
+  const activeMutation = lastAction === 'run' ? runExamplesMut : submitMut;
+  const result = activeMutation.data;
 
   const verdictPill = useMemo(() => {
     if (!result) return null;
@@ -278,21 +287,40 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
             ↺ {t('problem.reset')}
           </button>
           {canJudge ? (
-            <button
-              type="button"
-              disabled={runMut.isPending || code.trim().length === 0}
-              onClick={() =>
-                runMut.mutate({
-                  problemId,
-                  language: language as JudgeLang,
-                  code,
-                })
-              }
-              className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Ctrl+Enter"
-            >
-              {runMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘↵`}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={runExamplesMut.isPending || submitMut.isPending || code.trim().length === 0}
+                onClick={() => {
+                  setLastAction('run');
+                  runExamplesMut.mutate({
+                    problemId,
+                    language: language as JudgeLang,
+                    code,
+                  });
+                }}
+                className="px-4 py-1.5 rounded border border-emerald-600 text-emerald-700 dark:text-emerald-400 font-mono text-sm hover:bg-emerald-50 dark:hover:bg-emerald-950 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ctrl+Enter"
+              >
+                {runExamplesMut.isPending ? t('judge.running') : `${t('judge.run')} ⌘↵`}
+              </button>
+              <button
+                type="button"
+                disabled={runExamplesMut.isPending || submitMut.isPending || code.trim().length === 0}
+                onClick={() => {
+                  setLastAction('submit');
+                  submitMut.mutate({
+                    problemId,
+                    language: language as JudgeLang,
+                    code,
+                  });
+                }}
+                className="px-4 py-1.5 rounded bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ctrl+Shift+Enter"
+              >
+                {submitMut.isPending ? t('judge.submitting') : `${t('judge.submit')} ⌘⇧↵`}
+              </button>
+            </>
           ) : (
             <>
               {referenceSql && (
@@ -404,7 +432,8 @@ export function SolvePanel({ problemId, titleSlug, codeSnippets, exampleTestcase
         {canJudge ? (
           <BottomPanel
             result={result}
-            runMut={runMut}
+            runMut={activeMutation}
+            pendingLabel={lastAction === 'run' ? t('judge.running') : t('judge.submitting')}
             verdictPill={verdictPill}
             exampleTestcases={exampleTestcases}
             codeSnippets={codeSnippets}
@@ -724,13 +753,14 @@ function parseExampleTestcases(raw: string | null | undefined, paramNames: strin
   return cases;
 }
 
-function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippets, t }: {
+function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippets, t, pendingLabel }: {
   result: unknown;
   runMut: { isPending: boolean; isError: boolean; error?: { message?: string } | null };
   verdictPill: React.ReactNode;
   exampleTestcases: string | null | undefined;
   codeSnippets: CodeSnippet[] | null | undefined;
   t: (key: string) => string;
+  pendingLabel: string;
 }) {
   const [bottomTab, setBottomTab] = useState<'cases' | 'result'>(result ? 'result' : 'cases');
   const [activeCase, setActiveCase] = useState(0);
@@ -739,7 +769,15 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
   const r = result as {
     verdict?: string; passedCount?: number; totalCount?: number; runtimeMs?: number;
     firstFail?: { i: number; input: unknown; expected: unknown; actual: unknown; error?: string };
-    cases?: Array<{ i: number; ok: boolean; actual: unknown; error?: string | null }>;
+    cases?: Array<{
+      i: number;
+      ok: boolean;
+      input?: unknown;
+      expected?: unknown;
+      actual: unknown;
+      error?: string | null;
+      stdout?: string;
+    }>;
     compileStderr?: string; stderr?: string;
   } | null;
 
@@ -807,7 +845,7 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
         {bottomTab === 'result' && (
           <div className="space-y-3">
             {runMut.isPending && (
-              <p className="text-xs text-ink-soft font-mono">{t('judge.submitting')}</p>
+              <p className="text-xs text-ink-soft font-mono">{pendingLabel}</p>
             )}
             {runMut.isError && (
               <div className="text-rose-800 text-xs font-mono">{runMut.error?.message ?? 'submit failed'}</div>
@@ -835,16 +873,18 @@ function BottomPanel({ result, runMut, verdictPill, exampleTestcases, codeSnippe
                     </div>
                     {r.cases[activeCase] && (
                       <div className="space-y-1 text-sm">
-                        {r.firstFail && r.cases[activeCase].i === r.firstFail.i ? (
-                          <>
-                            <CaseBlock label={t('judge.input')} value={r.firstFail.input} />
-                            <CaseBlock label={t('judge.expected')} value={r.firstFail.expected} />
-                            <CaseBlock label={t('judge.actual')} value={r.cases[activeCase].actual} />
-                          </>
-                        ) : (
-                          <>
-                            <CaseBlock label={r.cases[activeCase].ok ? '✅ ' + t('judge.actual') : t('judge.actual')} value={r.cases[activeCase].actual} />
-                          </>
+                        {r.cases[activeCase].input !== undefined && (
+                          <CaseBlock label={t('judge.input')} value={r.cases[activeCase].input} />
+                        )}
+                        {r.cases[activeCase].expected !== undefined && (
+                          <CaseBlock label={t('judge.expected')} value={r.cases[activeCase].expected} />
+                        )}
+                        <CaseBlock
+                          label={r.cases[activeCase].ok ? '✅ ' + t('judge.actual') : t('judge.actual')}
+                          value={r.cases[activeCase].actual}
+                        />
+                        {r.cases[activeCase].stdout && (
+                          <CaseBlock label={t('judge.debugOutput')} value={r.cases[activeCase].stdout} pre />
                         )}
                         {r.cases[activeCase].error && <CaseBlock label={t('judge.error')} value={r.cases[activeCase].error} pre />}
                       </div>

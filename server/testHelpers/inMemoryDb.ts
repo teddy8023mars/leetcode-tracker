@@ -116,6 +116,48 @@ CREATE TABLE attempts (
   problemId INTEGER NOT NULL REFERENCES problems(id),
   attemptedAt TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE studyProfiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL REFERENCES users(id),
+  currentDayIndex INTEGER NOT NULL DEFAULT 0,
+  targetDaysPerWeek INTEGER NOT NULL DEFAULT 5,
+  standardMinutes INTEGER NOT NULL DEFAULT 70,
+  minimumMinutes INTEGER NOT NULL DEFAULT 10,
+  lastCompletedAt TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(userId)
+);
+CREATE TABLE studySessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL REFERENCES users(id),
+  localDate TEXT NOT NULL,
+  curriculumDayIndex INTEGER NOT NULL,
+  mode TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'in_progress',
+  coreIsTimedReview INTEGER NOT NULL DEFAULT 0,
+  startedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  completedAt TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(userId, localDate)
+);
+CREATE INDEX idx_studySessions_user_status ON studySessions(userId, status);
+CREATE INDEX idx_studySessions_user_date ON studySessions(userId, localDate);
+CREATE TABLE studyTaskProgress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sessionId INTEGER NOT NULL REFERENCES studySessions(id),
+  taskKey TEXT NOT NULL,
+  taskType TEXT NOT NULL,
+  problemId INTEGER REFERENCES problems(id),
+  status TEXT NOT NULL DEFAULT 'pending',
+  completedAt TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(sessionId, taskKey)
+);
+CREATE INDEX idx_studyTask_session ON studyTaskProgress(sessionId);
+CREATE INDEX idx_studyTask_problem ON studyTaskProgress(problemId);
 CREATE TABLE syncLogs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   syncType TEXT NOT NULL,

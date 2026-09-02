@@ -5,6 +5,11 @@ import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import type { Difficulty, ProgressStatus } from '@shared/problemTypes';
+import {
+  currentAppHref,
+  navigationOriginFromHref,
+  navigationStateWithOrigin,
+} from '@/lib/appNavigation';
 
 type ReviewProblem = {
   problemId: number;
@@ -64,9 +69,11 @@ function ProblemRow({ problem }: { problem: ReviewProblem }) {
   const { lang } = useLang();
   const t = useT();
   const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
+  const origin = navigationOriginFromHref(currentAppHref()) ?? { section: 'review' as const, href: '/review' };
   return (
     <Link
       href={`/problems/${problem.titleSlug}`}
+      state={navigationStateWithOrigin(origin, window.history.state)}
       className="grid grid-cols-[4rem_1fr_auto] items-center gap-3 border-t border-border px-3 py-3 hover:bg-secondary/60"
     >
       <span className="font-mono text-sm text-ink-soft">#{problem.frontendId}</span>
@@ -113,6 +120,8 @@ export function ReviewDashboard() {
   const dueProblems = dashboard.dueProblems as ReviewProblem[];
   const focusProblems = dashboard.focusProblems as ReviewProblem[];
   const recent = (recentQ.data ?? []) as RecentSubmission[];
+  const origin = navigationOriginFromHref(currentAppHref()) ?? { section: 'review' as const, href: '/review' };
+  const problemLinkState = navigationStateWithOrigin(origin, window.history.state);
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -207,7 +216,7 @@ export function ReviewDashboard() {
                 {recent.map((row) => (
                   <tr key={row.id} className="border-t border-border">
                     <td className="px-4 py-2">
-                      <Link href={`/problems/${row.titleSlug}`} className="font-medium hover:underline">
+                      <Link state={problemLinkState} href={`/problems/${row.titleSlug}`} className="font-medium hover:underline">
                         #{row.frontendId} {titleFor(row, lang)}
                       </Link>
                     </td>

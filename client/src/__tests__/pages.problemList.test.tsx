@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { LangProvider } from '@/contexts/LangContext';
 import { ProblemList } from '@/pages/ProblemList';
 import { trpc } from '@/lib/trpc';
@@ -17,7 +18,10 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 describe('ProblemList', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState({}, '', '/problems');
+  });
   afterEach(() => cleanup());
   it('renders problems table when data is present', () => {
     (trpc.problems.list.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -113,5 +117,28 @@ describe('ProblemList', () => {
     const text = document.body.textContent || '';
     expect(text).toContain('3');
     expect(text).toContain('184');
+  });
+
+  it('opens a title once and records Problems as the origin', async () => {
+    (trpc.problems.list.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        items: [{
+          id: 1, frontendId: 1, titleSlug: 'two-sum', titleEn: 'Two Sum',
+          difficulty: 'Easy', paidOnly: false,
+        }],
+        total: 1,
+      },
+      isLoading: false,
+    });
+    const pushState = vi.spyOn(window.history, 'pushState');
+    render(<LangProvider><ProblemList /></LangProvider>);
+
+    await userEvent.click(screen.getByRole('link', { name: 'Two Sum' }));
+
+    expect(pushState).toHaveBeenCalledOnce();
+    expect(window.history.state).toMatchObject({
+      appNavigationOrigin: { section: 'problems', href: '/problems' },
+    });
+    pushState.mockRestore();
   });
 });

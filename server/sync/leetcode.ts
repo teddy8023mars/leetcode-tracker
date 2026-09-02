@@ -157,6 +157,25 @@ query questionTranslations($titleSlug: String!) {
   }
 }`;
 
+const CATALOG_ENTRY_QUERY = `
+query questionCatalogEntry($titleSlug: String!) {
+  question(titleSlug: $titleSlug) {
+    questionFrontendId
+    titleSlug
+    title
+    translatedTitle
+    difficulty
+    isPaidOnly
+    content
+    translatedContent
+    hints
+    exampleTestcases
+    topicTags { slug name }
+    similarQuestions
+    codeSnippets { lang langSlug code }
+  }
+}`;
+
 const SOLUTION_ZH_QUERY = `
 query solutionArticle($slug: String!) {
   solutionArticle(slug: $slug, orderBy: DEFAULT) {
@@ -174,6 +193,11 @@ export type DetailEn = {
 };
 
 type RawQuestionDetail = {
+  questionFrontendId?: string | number;
+  titleSlug?: string;
+  title?: string;
+  difficulty?: string;
+  isPaidOnly?: boolean;
   content?: string | null;
   hints?: string[];
   exampleTestcases?: string | null;
@@ -183,6 +207,60 @@ type RawQuestionDetail = {
   translatedTitle?: string | null;
   translatedContent?: string | null;
 };
+
+export type CatalogEntry = {
+  frontendId: number;
+  titleSlug: string;
+  titleEn: string;
+  titleZh: string | null;
+  difficulty: Difficulty;
+  paidOnly: boolean;
+  contentEn: string | null;
+  contentZh: string | null;
+  hintsJson: string[];
+  exampleTestcases: string | null;
+  topicTagsJson: { slug: string; name: string }[];
+  similarQuestionsJson: unknown;
+  codeSnippetsJson: { lang: string; langSlug: string; code: string }[];
+  contentFetchedAt: Date;
+  metaUpdatedAt: Date;
+};
+
+export async function fetchQuestionCatalogEntry(titleSlug: string): Promise<CatalogEntry | null> {
+  const data = await gql<{ question: RawQuestionDetail | null }>(
+    LEETCODE_US_GRAPHQL,
+    CATALOG_ENTRY_QUERY,
+    { titleSlug },
+  );
+  const question = data.question;
+  if (!question) return null;
+
+  let similarQuestionsJson: unknown = [];
+  try {
+    similarQuestionsJson = JSON.parse(question.similarQuestions ?? '[]');
+  } catch {
+    similarQuestionsJson = [];
+  }
+
+  const now = new Date();
+  return {
+    frontendId: Number(question.questionFrontendId),
+    titleSlug: question.titleSlug ?? titleSlug,
+    titleEn: question.title ?? titleSlug,
+    titleZh: question.translatedTitle ?? null,
+    difficulty: DIFF_MAP[question.difficulty ?? ''] ?? 'Medium',
+    paidOnly: !!question.isPaidOnly,
+    contentEn: question.content ?? null,
+    contentZh: question.translatedContent ?? null,
+    hintsJson: question.hints ?? [],
+    exampleTestcases: question.exampleTestcases ?? null,
+    topicTagsJson: question.topicTags ?? [],
+    similarQuestionsJson,
+    codeSnippetsJson: question.codeSnippets ?? [],
+    contentFetchedAt: now,
+    metaUpdatedAt: now,
+  };
+}
 
 export async function fetchQuestionDetailEn(titleSlug: string): Promise<DetailEn | null> {
   const data = await gql<{ question: RawQuestionDetail | null }>(

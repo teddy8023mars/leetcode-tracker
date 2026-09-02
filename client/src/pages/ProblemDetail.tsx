@@ -12,6 +12,18 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import type { Difficulty } from '@shared/problemTypes';
 import { tagDisplayName } from '@/lib/problemTags';
 import { stripPythonSolutions } from '@/lib/solutionMarkdown';
+import { StudyHintPanel } from '@/components/StudyHintPanel';
+import {
+  navigationStateWithOrigin,
+  readNavigationOrigin,
+  type NavigationOrigin,
+} from '@/lib/appNavigation';
+import {
+  parseRoadmapContext,
+  resolveRoadmapContext,
+  RoadmapContextPanel,
+  type RoadmapView,
+} from '@/components/RoadmapContextPanel';
 
 type SimilarQuestion = { title: string; titleSlug: string; difficulty: string };
 
@@ -37,6 +49,16 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   const neighborsQ = trpc.problems.neighbors.useQuery({ titleSlug }, { staleTime: 120_000 });
   const problemId = (q.data as ProblemDetailRow | undefined)?.id ?? 0;
   const companyQ = trpc.problems.companyTags.useQuery({ problemId }, { staleTime: 120_000, enabled: problemId > 0 });
+  const studyParams = new URLSearchParams(window.location.search);
+  const roadmapContext = parseRoadmapContext(window.location.search);
+  const roadmapQ = trpc.roadmaps.getBySlug.useQuery(
+    { slug: roadmapContext?.roadmapSlug ?? '' },
+    { enabled: roadmapContext !== null, staleTime: 60_000 },
+  );
+  const studySessionId = Number(studyParams.get('studySession'));
+  const studyTaskKey = studyParams.get('studyTask');
+  const hasStudyContext = Number.isInteger(studySessionId) && studySessionId > 0 && (studyTaskKey === 'review' || studyTaskKey === 'problem');
+  const studyQ = trpc.study.today.useQuery(undefined, { enabled: hasStudyContext, staleTime: 5_000 });
 
   const prev = neighborsQ.data?.prev ?? null;
   const next = neighborsQ.data?.next ?? null;
@@ -44,6 +66,10 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   if (q.isLoading) return <p className="text-ink-soft">{t('loading')}</p>;
   if (!q.data) return <p className="text-ink-soft">{t('empty')}</p>;
   const p = q.data as ProblemDetailRow;
+  const roadmapView = roadmapQ.data as RoadmapView | undefined;
+  const resolvedRoadmapContext = roadmapContext && roadmapView
+    ? resolveRoadmapContext(roadmapView, roadmapContext, p.titleSlug)
+    : null;
 
   const wantZh = lang === 'zh';
   const usedZh = wantZh && !!p.contentZh;
@@ -57,6 +83,32 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
   ];
   const companies = (companyQ.data ?? []) as Array<{ companySlug: string; companyName: string }>;
   const uniqueCompanies = Array.from(new Map(companies.map(c => [c.companySlug, c])).values());
+  const studyProblem = studyTaskKey === 'review' ? studyQ.data?.reviewProblem : studyQ.data?.coreProblem;
+  const studyTask = studyQ.data?.tasks.find((task) => task.taskKey === studyTaskKey);
+  const validStudyContext = hasStudyContext
+    && studyQ.data?.session?.id === studySessionId
+    && studyProblem?.titleSlug === p.titleSlug
+    && studyTask?.problemId === p.id;
+  const navigationOrigin: NavigationOrigin = resolvedRoadmapContext
+    ? {
+      section: 'roadmap',
+      href: `/roadmap/${roadmapView!.slug}#section-${resolvedRoadmapContext.section.slug}`,
+    }
+    : validStudyContext
+      ? { section: 'today', href: '/today' }
+      : readNavigationOrigin(window.history.state) ?? { section: 'problems', href: '/problems' };
+  const navigationState = navigationStateWithOrigin(navigationOrigin, window.history.state);
+  const backLabel = navigationOrigin.section === 'today'
+    ? t('navigation.backToday')
+    : navigationOrigin.section === 'roadmap'
+      ? t('navigation.backRoadmap')
+      : navigationOrigin.section === 'review'
+        ? t('navigation.backReview')
+        : navigationOrigin.section === 'sync'
+          ? t('navigation.backSync')
+          : navigationOrigin.section === 'settings'
+            ? t('navigation.backSettings')
+            : t('navigation.backProblems');
 
   const descriptionCard = (
     <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
@@ -79,24 +131,27 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
       <div className="flex flex-col gap-2 shrink-0">
         <div className="flex items-center justify-between">
           <Link
-            href="/problems"
+            href={navigationOrigin.href}
             className="text-sm font-mono text-ink-soft hover:text-ink w-fit"
           >
-            {t('problemList.backToProblems')}
+            {backLabel}
           </Link>
-          <div className="flex items-center gap-2">
-            {prev && (
-              <Link href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
-                ← #{prev.frontendId}
-              </Link>
-            )}
-            {next && (
-              <Link href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
-                #{next.frontendId} →
-              </Link>
-            )}
-          </div>
+          {!resolvedRoadmapContext && (
+            <div className="flex items-center gap-2">
+              {prev && (
+                <Link state={navigationState} href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                  ← #{prev.frontendId}
+                </Link>
+              )}
+              {next && (
+                <Link state={navigationState} href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                  #{next.frontendId} →
+                </Link>
+              )}
+            </div>
+          )}
         </div>
+        {resolvedRoadmapContext && <RoadmapContextPanel view={roadmapView!} resolved={resolvedRoadmapContext} />}
         <header className="flex items-baseline gap-3 flex-wrap">
           <span className="font-mono text-ink-soft text-lg">#{p.frontendId}</span>
           <h1 className="text-3xl font-extrabold tracking-tight">
@@ -128,6 +183,12 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
           </div>
         )}
         <ProgressSection problemId={p.id} />
+        {validStudyContext && (
+          <StudyHintPanel
+            hints={lang === 'zh' ? studyQ.data!.curriculumDay.hintsZh : studyQ.data!.curriculumDay.hints}
+            completed={studyTask?.status === 'completed'}
+          />
+        )}
       </div>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
@@ -145,6 +206,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
                     <Link
                       key={sq.titleSlug}
                       href={`/problems/${sq.titleSlug}`}
+                      state={navigationState}
                       className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-secondary/50 hover:bg-secondary rounded transition-colors"
                     >
                       <span>{sq.title}</span>
@@ -327,6 +389,8 @@ function ProgressSection({ problemId }: { problemId: number }) {
       utils.progress.get.invalidate({ problemId });
       utils.progress.listDue.invalidate();
       utils.progress.listAll.invalidate();
+      utils.study.today.invalidate();
+      utils.roadmaps?.getBySlug?.invalidate();
     },
   });
   const [showRating, setShowRating] = useState(false);
@@ -406,4 +470,3 @@ function ProgressSection({ problemId }: { problemId: number }) {
     </div>
   );
 }
-

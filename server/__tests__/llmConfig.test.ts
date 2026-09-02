@@ -5,10 +5,13 @@ import { invokeLLM } from '../_core/llm';
 import { generateTestcaseSuite } from '../judge/testcaseGenerator';
 
 const ORIGINAL_KEY = process.env.BUILT_IN_FORGE_API_KEY;
+const ORIGINAL_DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 
 afterEach(() => {
   if (ORIGINAL_KEY === undefined) delete process.env.BUILT_IN_FORGE_API_KEY;
   else process.env.BUILT_IN_FORGE_API_KEY = ORIGINAL_KEY;
+  if (ORIGINAL_DEEPSEEK_KEY === undefined) delete process.env.DEEPSEEK_API_KEY;
+  else process.env.DEEPSEEK_API_KEY = ORIGINAL_DEEPSEEK_KEY;
 });
 
 describe('isLlmConfigured', () => {
@@ -29,6 +32,12 @@ describe('isLlmConfigured', () => {
 
   it('is true for a real key', () => {
     process.env.BUILT_IN_FORGE_API_KEY = 'sk-abc123';
+    expect(isLlmConfigured()).toBe(true);
+  });
+
+  it('is true for the legacy DeepSeek key name', () => {
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
     expect(isLlmConfigured()).toBe(true);
   });
 });

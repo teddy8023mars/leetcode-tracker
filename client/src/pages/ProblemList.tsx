@@ -17,6 +17,11 @@ import {
 } from '@/components/ui/select';
 import type { Difficulty } from '@shared/problemTypes';
 import { collectTagOptions, problemHasTag, tagDisplayName } from '@/lib/problemTags';
+import {
+  currentAppHref,
+  navigationOriginFromHref,
+  navigationStateWithOrigin,
+} from '@/lib/appNavigation';
 
 type ProblemRow = {
   id: number;
@@ -66,6 +71,13 @@ export function ProblemList() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<'id' | 'difficulty' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const problemListOrigin = navigationOriginFromHref(currentAppHref())
+    ?? { section: 'problems' as const, href: '/problems' };
+  const problemLinkState = navigationStateWithOrigin(problemListOrigin, window.history.state);
+  const openProblem = (titleSlug: string) => navigate(
+    `/problems/${titleSlug}`,
+    { state: problemLinkState },
+  );
   const toggleSort = (col: 'id' | 'difficulty') => {
     if (sortBy === col) {
       if (sortDir === 'asc') setSortDir('desc');
@@ -298,11 +310,19 @@ export function ProblemList() {
                 </thead>
                 <tbody>
                   {items.map((p) => (
-                    <tr key={p.id} className="border-t border-border hover:bg-secondary/50 cursor-pointer" onClick={() => navigate(`/problems/${p.titleSlug}`)}>
+                    <tr
+                      key={p.id}
+                      className="border-t border-border hover:bg-secondary/50 cursor-pointer"
+                      onClick={(event) => {
+                        if ((event.target as Element).closest('a')) return;
+                        openProblem(p.titleSlug);
+                      }}
+                    >
                       <td className="py-2 pr-3 font-mono text-ink-soft">{p.frontendId}</td>
                       <td className="pr-3 py-2">
                         <Link
                           href={`/problems/${p.titleSlug}`}
+                          state={problemLinkState}
                           className="font-medium hover:underline"
                         >
                           {lang === 'zh' ? p.titleZh || p.titleEn : p.titleEn}

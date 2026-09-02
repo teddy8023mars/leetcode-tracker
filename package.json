@@ -1,6 +1,6 @@
 {
   "name": "leetcode-tracker",
-  "version": "1.2.4",
+  "version": "1.2.9",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,7 +12,11 @@
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "electron:build": "tsx scripts/export-seed-data.ts && vite build && esbuild electron/server-entry.ts --platform=node --bundle --format=esm --outfile=dist-electron/server.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && cp electron/main.mjs dist-electron/ && electron-builder --mac",
-    "seed:export": "tsx scripts/export-seed-data.ts"
+    "seed:export": "tsx scripts/export-seed-data.ts",
+    "roadmap:generate": "tsx scripts/generate-code-thinking-roadmap.ts",
+    "roadmap:ensure-catalog": "tsx scripts/ensure-roadmap-catalog.ts",
+    "judge:generate-signatures": "tsx scripts/generate-offline-signature-catalog.ts",
+    "judge:audit-premium": "tsx scripts/audit-premium-offline-judge.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
