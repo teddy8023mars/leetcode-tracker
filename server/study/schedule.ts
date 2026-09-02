@@ -24,8 +24,8 @@ export function shouldGentleRestart(lastCompletedAt: Date | null, now: Date): bo
 
 export function requiredTaskKeys(mode: StudyMode): StudyTaskKey[] {
   return mode === 'minimum'
-    ? ['review', 'dsa']
-    : ['review', 'dsa', 'problem', 'career'];
+    ? ['review']
+    : ['review', 'problem', 'career'];
 }
 
 export function selectProblemCandidate(

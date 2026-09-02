@@ -10,9 +10,9 @@ import {
 } from '../study/schedule';
 
 describe('study schedule', () => {
-  it('requires four standard tasks and two minimum tasks', () => {
-    expect(requiredTaskKeys('standard')).toEqual(['review', 'dsa', 'problem', 'career']);
-    expect(requiredTaskKeys('minimum')).toEqual(['review', 'dsa']);
+  it('does not require the removed micro-lesson in either study mode', () => {
+    expect(requiredTaskKeys('standard')).toEqual(['review', 'problem', 'career']);
+    expect(requiredTaskKeys('minimum')).toEqual(['review']);
   });
 
   it('recommends a gentle restart only after at least three missed local days', () => {

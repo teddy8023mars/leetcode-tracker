@@ -198,7 +198,6 @@ export class StudyService {
       now,
       tasks: [
         { taskKey: 'review', taskType: 'review', problemId: selection.reviewProblem?.id ?? null },
-        { taskKey: 'dsa', taskType: 'dsa_lesson', problemId: null },
         { taskKey: 'problem', taskType: 'problem', problemId: selection.coreProblem?.id ?? null },
         { taskKey: 'career', taskType: careerTaskType(curriculumDay), problemId: null },
       ],
@@ -271,7 +270,7 @@ export class StudyService {
     const gentleRestart = shouldGentleRestart(profile.lastCompletedAt, now);
     const mode = session?.mode ?? (gentleRestart ? 'minimum' : 'standard');
     return {
-      profile,
+      profile: { ...profile, standardMinutes: 70, minimumMinutes: 10 },
       session,
       tasks,
       curriculumDay,

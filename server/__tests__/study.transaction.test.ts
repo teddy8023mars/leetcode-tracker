@@ -279,7 +279,7 @@ function seedCompletableSession(sqlite: Database.Database, completedTaskKeys: st
 describe('transaction-faithful completion races', () => {
   it('advances exactly once under concurrent duplicate completion', async () => {
     const { sqlite } = createInMemoryDb();
-    seedCompletableSession(sqlite, ['review', 'dsa', 'problem', 'career']);
+    seedCompletableSession(sqlite, ['review', 'problem', 'career']);
     const { connector } = sqliteCompletionHarness(sqlite);
     const input = { userId: 1, sessionId: 11, localDate: '2026-09-01', now };
 
@@ -297,7 +297,7 @@ describe('transaction-faithful completion races', () => {
 
   it('serializes a mode race and validates the mode held by the session lock', async () => {
     const { sqlite } = createInMemoryDb();
-    seedCompletableSession(sqlite, ['review', 'dsa']);
+    seedCompletableSession(sqlite, ['review']);
     let announceLock!: () => void;
     let releaseLock!: () => void;
     const locked = new Promise<void>((resolve) => { announceLock = resolve; });

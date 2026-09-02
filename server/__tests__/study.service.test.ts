@@ -82,8 +82,8 @@ function createMemoryRepository(options: {
       }
       const completeKeys = new Set(tasks.filter((task) => task.sessionId === sessionId && task.status === 'completed').map((task) => task.taskKey));
       const requiredKeys = session.mode === 'minimum'
-        ? ['review', 'dsa'] as const
-        : ['review', 'dsa', 'problem', 'career'] as const;
+        ? ['review'] as const
+        : ['review', 'problem', 'career'] as const;
       if (requiredKeys.some((key) => !completeKeys.has(key))) return 'missing_tasks';
       session.status = 'completed'; session.completedAt = now;
       profile!.currentDayIndex += 1; profile!.lastCompletedAt = now;
@@ -116,10 +116,11 @@ describe('StudyService', () => {
     const again = await service.startToday(1, 'minimum');
     expect(again.session?.id).toBe(first.session?.id);
     expect(again.session?.mode).toBe('standard');
+    expect(first.tasks.map((task) => task.taskKey)).toEqual(['review', 'problem', 'career']);
+    expect(first.profile).toMatchObject({ standardMinutes: 70, minimumMinutes: 10 });
 
     await service.completeMatchingStudyProblemTasks(1, first.reviewProblem!.id);
     await service.completeMatchingStudyProblemTasks(1, first.coreProblem!.id);
-    await service.completeTask(1, first.session!.id, 'dsa');
     await service.completeTask(1, first.session!.id, 'career');
     await service.completeSession(1, first.session!.id);
 
@@ -134,7 +135,6 @@ describe('StudyService', () => {
     const service = new StudyService(memory.repository, () => new Date(2026, 8, 1, 8));
     const today = await service.startToday(1, 'standard');
     await service.completeMatchingStudyProblemTasks(1, today.reviewProblem!.id);
-    await service.completeTask(1, today.session!.id, 'dsa');
 
     await expect(service.completeSession(1, today.session!.id)).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
     await service.setMode(1, today.session!.id, 'minimum');
@@ -151,15 +151,13 @@ describe('StudyService', () => {
     const old = await service.startToday(1, 'standard');
 
     await service.completeMatchingStudyProblemTasks(1, old.reviewProblem!.id);
-    await service.completeTask(1, old.session!.id, 'dsa');
-    await service.completeTask(1, old.session!.id, 'career');
     now = new Date(2026, 8, 2, 8);
     const current = await service.startToday(1, 'standard');
 
     await expect(service.setMode(1, old.session!.id, 'minimum')).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
-    await expect(service.completeTask(1, old.session!.id, 'dsa')).rejects.toMatchObject({
+    await expect(service.completeTask(1, old.session!.id, 'career')).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
     await expect(service.completeSession(1, old.session!.id)).rejects.toMatchObject({

@@ -37,18 +37,16 @@ describe('SQLite-backed StudyRepository integration', () => {
     expect(current.session?.id).not.toBe(old.session?.id);
 
     await expect(service.setMode(1, old.session!.id, 'minimum')).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await expect(service.completeTask(1, old.session!.id, 'dsa')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(service.completeTask(1, old.session!.id, 'career')).rejects.toMatchObject({ code: 'NOT_FOUND' });
     expect(await service.completeMatchingStudyProblemTasks(1, 99)).toBe(0);
     expect(await service.completeMatchingStudyProblemTasks(1, current.coreProblem!.id)).toBe(2);
     expect(taskStatuses(sqlite, old.session!.id)).toEqual([
       { taskKey: 'career', status: 'pending' },
-      { taskKey: 'dsa', status: 'pending' },
       { taskKey: 'problem', status: 'pending' },
       { taskKey: 'review', status: 'pending' },
     ]);
     expect(taskStatuses(sqlite, current.session!.id)).toEqual([
       { taskKey: 'career', status: 'pending' },
-      { taskKey: 'dsa', status: 'pending' },
       { taskKey: 'problem', status: 'completed' },
       { taskKey: 'review', status: 'completed' },
     ]);

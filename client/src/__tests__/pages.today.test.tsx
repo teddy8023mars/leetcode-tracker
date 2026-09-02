@@ -36,7 +36,7 @@ const curriculumDay = {
 
 function todayData(active = false) {
   return {
-    profile: { id: 1, userId: 1, currentDayIndex: 0, targetDaysPerWeek: 5, standardMinutes: 90, minimumMinutes: 25, lastCompletedAt: null },
+    profile: { id: 1, userId: 1, currentDayIndex: 0, targetDaysPerWeek: 5, standardMinutes: 70, minimumMinutes: 10, lastCompletedAt: null },
     session: active ? { id: 12, userId: 1, localDate: '2026-09-01', curriculumDayIndex: 0, mode: 'standard' as const, status: 'in_progress' as const, startedAt: new Date(), completedAt: null } : null,
     tasks: active ? [
       { id: 1, sessionId: 12, taskKey: 'review' as const, taskType: 'review' as const, problemId: 1, status: 'completed' as const, completedAt: new Date() },
@@ -48,7 +48,7 @@ function todayData(active = false) {
     reviewProblem: problem,
     coreProblem: problem,
     coreIsTimedReview: false,
-    requiredTaskKeys: ['review', 'dsa', 'problem', 'career'] as const,
+    requiredTaskKeys: ['review', 'problem', 'career'] as const,
     weeklyCompleted: 0,
     gentleRestart: false,
     recommendedMode: 'standard' as 'standard' | 'minimum',
@@ -85,10 +85,10 @@ describe('TodayPage', () => {
     expect(screen.getByText('0/5 learning days')).toBeInTheDocument();
     expect(screen.getByText('Day 1 of 60')).toBeInTheDocument();
     expect(screen.getByText('Missing a day never creates backlog.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Standard · 90 min' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Minimum · 25 min' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Minimum · 25 min' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Start 25-minute session' }));
+    expect(screen.getByRole('button', { name: 'Standard · 70 min' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Minimum · 10 min' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Minimum · 10 min' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start 10-minute session' }));
     expect(start).toHaveBeenCalledWith({ mode: 'minimum' });
     expect(setMode).not.toHaveBeenCalled();
   });
@@ -105,19 +105,23 @@ describe('TodayPage', () => {
       .mockReturnValue({ data: minimum, isLoading: false });
     rerender(<LangProvider><TodayPage /></LangProvider>);
 
-    expect(screen.getByRole('button', { name: 'Start 25-minute session' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start 10-minute session' })).toBeEnabled();
   });
 
-  it('renders four ordered standard tasks and gates finishing', async () => {
+  it('omits the retired micro-lesson even when a legacy task record exists', async () => {
     (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ data: todayData(true), isLoading: false });
     render(<LangProvider><TodayPage /></LangProvider>);
 
-    expect(screen.getAllByTestId(/^study-task-/)).toHaveLength(4);
+    expect(screen.getAllByTestId(/^study-task-/).map((card) => card.dataset.testid)).toEqual([
+      'study-task-review',
+      'study-task-problem',
+      'study-task-career',
+    ]);
+    expect(screen.queryByText('DSA micro-lesson')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Complete micro-lesson' })).not.toBeInTheDocument();
     expect(screen.getByTestId('study-task-review')).toHaveTextContent('Done');
     expect(screen.getByRole('button', { name: 'Finish learning day' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Complete micro-lesson' }));
-    expect(completeTask).toHaveBeenCalledWith({ sessionId: 12, taskKey: 'dsa' });
-    await userEvent.click(screen.getByRole('button', { name: 'Minimum · 25 min' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Minimum · 10 min' }));
     expect(setMode).toHaveBeenCalledWith({ sessionId: 12, mode: 'minimum' });
   });
 
@@ -139,6 +143,6 @@ describe('TodayPage', () => {
     (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ data, isLoading: false });
     render(<LangProvider><TodayPage /></LangProvider>);
     expect(screen.getByText('Welcome back. Start small today.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start 25-minute session' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start 10-minute session' })).toBeEnabled();
   });
 });

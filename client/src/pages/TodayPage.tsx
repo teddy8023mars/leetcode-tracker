@@ -1,4 +1,4 @@
-import { Check, Circle, Clock3, Cloud, Code2, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Circle, Clock3, Cloud, RotateCcw, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 
@@ -9,8 +9,9 @@ import { Progress } from '@/components/ui/progress';
 import { useLang, useT } from '@/contexts/LangContext';
 import { navigationStateWithOrigin } from '@/lib/appNavigation';
 import { trpc } from '@/lib/trpc';
+import type { StudyTaskKey } from '@shared/studyTypes';
 
-type TaskKey = 'review' | 'dsa' | 'problem' | 'career';
+type VisibleTaskKey = Exclude<StudyTaskKey, 'dsa'>;
 
 export function TodayPage() {
   const t = useT();
@@ -39,12 +40,12 @@ export function TodayPage() {
   const session = data.session;
   const mode = session?.mode ?? selectedMode;
   const taskByKey = new Map(data.tasks.map((task) => [task.taskKey, task]));
-  const isComplete = (key: TaskKey) => taskByKey.get(key)?.status === 'completed';
+  const isComplete = (key: StudyTaskKey) => taskByKey.get(key)?.status === 'completed';
   const required = new Set(data.requiredTaskKeys);
   const canFinish = !!session && session.status === 'in_progress' && data.requiredTaskKeys.every((key) => isComplete(key));
-  const visibleKeys: TaskKey[] = session && mode === 'minimum'
-    ? (['review', 'dsa', 'problem', 'career'] as TaskKey[]).filter((key) => required.has(key) || isComplete(key))
-    : ['review', 'dsa', 'problem', 'career'];
+  const visibleKeys: VisibleTaskKey[] = session && mode === 'minimum'
+    ? (['review', 'problem', 'career'] as VisibleTaskKey[]).filter((key) => required.has(key) || isComplete(key))
+    : ['review', 'problem', 'career'];
   const title = lang === 'zh' ? day.titleZh : day.titleEn;
   const topic = lang === 'zh' ? day.topicZh : day.topicEn;
   const problemLinkState = navigationStateWithOrigin(
@@ -134,23 +135,9 @@ export function TodayPage() {
             </StudyTaskCard>
           )}
 
-          {visibleKeys.includes('dsa') && (
-            <StudyTaskCard
-              taskKey="dsa" icon={<Code2 className="w-5 h-5" />} number={2} minutes={15}
-              title={t('today.lessonTitle')} description={lang === 'zh' ? day.lessonZh : day.lessonEn}
-              done={isComplete('dsa')} required={required.has('dsa')}
-            >
-              <div className="rounded-md bg-secondary/50 p-3 text-sm space-y-1 mb-3">
-                <p><strong>{t('today.pattern')}:</strong> {lang === 'zh' ? day.patternZh : day.patternEn}</p>
-                <p><strong>{t('today.mistake')}:</strong> {lang === 'zh' ? day.mistakeZh : day.mistakeEn}</p>
-              </div>
-              {!isComplete('dsa') && <Button onClick={() => completeTask.mutate({ sessionId: session.id, taskKey: 'dsa' })}>{t('today.completeLesson')}</Button>}
-            </StudyTaskCard>
-          )}
-
           {visibleKeys.includes('problem') && (
             <StudyTaskCard
-              taskKey="problem" icon={<Circle className="w-5 h-5" />} number={3} minutes={40}
+              taskKey="problem" icon={<Circle className="w-5 h-5" />} number={2} minutes={40}
               title={data.coreIsTimedReview ? t('today.timedReview') : t('today.problemTitle')}
               description={data.coreProblem ? displayProblem(data.coreProblem, lang) : t('today.problemEmpty')}
               done={isComplete('problem')} required={required.has('problem')}
@@ -163,7 +150,7 @@ export function TodayPage() {
 
           {visibleKeys.includes('career') && (
             <StudyTaskCard
-              taskKey="career" icon={<Cloud className="w-5 h-5" />} number={4} minutes={20}
+              taskKey="career" icon={<Cloud className="w-5 h-5" />} number={3} minutes={20}
               title={lang === 'zh' ? day.career.titleZh : day.career.titleEn}
               description={lang === 'zh' ? day.career.bodyZh : day.career.bodyEn}
               done={isComplete('career')} required={required.has('career')}
@@ -187,7 +174,7 @@ export function TodayPage() {
 }
 
 function StudyTaskCard(props: {
-  taskKey: TaskKey;
+  taskKey: VisibleTaskKey;
   icon: React.ReactNode;
   number: number;
   minutes: number;
