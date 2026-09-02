@@ -18,7 +18,14 @@ async function runPython(userCode: string, suite: {
   comparison?: "exact" | "unordered" | "deep-unordered";
   resultFromArg?: number;
   className?: string;
-  inputAdapter?: "linked-list-cycle" | "binary-tree-node-refs" | "design-binary-tree" | "design-iterator";
+  inputAdapter?:
+    | "linked-list-cycle"
+    | "binary-tree-node-refs"
+    | "design-binary-tree"
+    | "design-iterator"
+    | "first-bad-version"
+    | "guess-number"
+    | "celebrity-graph";
   resultAdapter?: "linked-list-node-index" | "tree-node-value";
   validator?:
     | "remove-element"
@@ -36,6 +43,160 @@ async function runPython(userCode: string, suite: {
 }
 
 describe("judge end-to-end (python)", () => {
+  it("provides the common helper names injected by LeetCode's Python runtime", async () => {
+    const code = `
+class Solution:
+    def helpers(self, values):
+        @cache
+        def identity(value):
+            return value
+        heapify(values)
+        return [
+            list(pairwise([1, 2, 3])),
+            identity(inf) > 0,
+            list(accumulate([1, 2, 3])),
+            list(product([1, 2], [3])),
+            [list(group) for _, group in groupby([1, 1, 2])],
+            list(combinations([1, 2, 3], 2)),
+            nlargest(2, values),
+            bisect_left([1, 3], 2),
+            bisect_right([1, 3], 3),
+            comb(5, 2),
+        ]
+`;
+    const { parsed } = await runPython(code, {
+      methodName: "helpers",
+      cases: [{
+        input: [[3, 1, 2]],
+        expected: [
+          [[1, 2], [2, 3]],
+          true,
+          [1, 3, 6],
+          [[1, 3], [2, 3]],
+          [[1, 1], [2]],
+          [[1, 2], [1, 3], [2, 3]],
+          [3, 2],
+          1,
+          2,
+          10,
+        ],
+      }],
+    });
+
+    expect(parsed.summary?.passed).toBe(1);
+  });
+
+  it("provides a local SortedList compatible with common accepted solutions", async () => {
+    const code = `
+class Solution:
+    def sortedOps(self, values):
+        ordered = SortedList(values)
+        ordered.add(2)
+        ordered.remove(3)
+        ordered.discard(99)
+        return [list(ordered), ordered.bisect_left(2), ordered.bisect_right(2), ordered.pop()]
+`;
+    const { parsed } = await runPython(code, {
+      methodName: "sortedOps",
+      cases: [{ input: [[3, 1, 2]], expected: [[1, 2, 2], 1, 3, 2] }],
+    });
+
+    expect(parsed.summary?.passed).toBe(1);
+  });
+
+  it("supports key-ordered SortedList instances", async () => {
+    const code = `
+class Solution:
+    def sortedByKey(self, values):
+        ordered = SortedList(values, key=lambda value: -value)
+        ordered.add(4)
+        ordered.discard(2)
+        return list(ordered)
+`;
+    const { parsed } = await runPython(code, {
+      methodName: "sortedByKey",
+      cases: [{ input: [[1, 2, 3]], expected: [4, 3, 1] }],
+    });
+
+    expect(parsed.summary?.passed).toBe(1);
+  });
+
+  it.each([
+    {
+      name: "isBadVersion",
+      methodName: "firstBadVersion",
+      inputAdapter: "first-bad-version" as const,
+      input: [5, 4],
+      expected: 4,
+      code: `
+class Solution:
+    def firstBadVersion(self, n):
+        left, right = 1, n
+        while left < right:
+            middle = (left + right) // 2
+            if isBadVersion(middle):
+                right = middle
+            else:
+                left = middle + 1
+        return left
+`,
+    },
+    {
+      name: "guess",
+      methodName: "guessNumber",
+      inputAdapter: "guess-number" as const,
+      input: [10, 6],
+      expected: 6,
+      code: `
+class Solution:
+    def guessNumber(self, n):
+        left, right = 1, n
+        while left <= right:
+            middle = (left + right) // 2
+            result = guess(middle)
+            if result == 0:
+                return middle
+            if result < 0:
+                right = middle - 1
+            else:
+                left = middle + 1
+`,
+    },
+  ])("simulates the $name hidden API", async (fixture) => {
+    const { parsed } = await runPython(fixture.code, {
+      methodName: fixture.methodName,
+      inputAdapter: fixture.inputAdapter,
+      cases: [{ input: fixture.input, expected: fixture.expected }],
+    });
+
+    expect(parsed.summary?.passed).toBe(1);
+  });
+
+  it("simulates the knows API from a hidden celebrity graph", async () => {
+    const code = `
+class Solution:
+    def findCelebrity(self, n):
+        candidate = 0
+        for person in range(1, n):
+            if knows(candidate, person):
+                candidate = person
+        for person in range(n):
+            if person != candidate and (knows(candidate, person) or not knows(person, candidate)):
+                return -1
+        return candidate
+`;
+    const { parsed } = await runPython(code, {
+      methodName: "findCelebrity",
+      inputAdapter: "celebrity-graph",
+      cases: [{
+        input: [[[1, 1, 0], [0, 1, 0], [1, 1, 1]]],
+        expected: 1,
+      }],
+    });
+
+    expect(parsed.summary?.passed).toBe(1);
+  });
+
   it("accepts an equivalent answer when the problem allows any order", async () => {
     const code = `
 class Solution:

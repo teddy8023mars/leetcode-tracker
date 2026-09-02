@@ -14,6 +14,8 @@ import { LLM_NOT_CONFIGURED_ERR } from "@shared/const";
 import { invokeLLM } from "../_core/llm";
 import { isLlmConfigured } from "../_core/env";
 import { jsonrepair } from "jsonrepair";
+import { OFFLINE_PYTHON_SIGNATURES } from "./offlineSignatureCatalog";
+import { OFFLINE_REFERENCE_VERIFIED_PROBLEMS } from "./offlineVerifiedCatalog";
 
 export interface ProblemPromptInput {
   titleSlug: string;
@@ -42,7 +44,14 @@ export interface GeneratedSuite {
   /** LeetCode design problems instantiate this class and replay operation sequences. */
   className?: string;
   /** Converts serialized LeetCode inputs that are not ordinary method arguments. */
-  inputAdapter?: "linked-list-cycle" | "binary-tree-node-refs" | "design-binary-tree" | "design-iterator";
+  inputAdapter?:
+    | "linked-list-cycle"
+    | "binary-tree-node-refs"
+    | "design-binary-tree"
+    | "design-iterator"
+    | "first-bad-version"
+    | "guess-number"
+    | "celebrity-graph";
   /** Converts a returned structure into LeetCode's expected comparison value. */
   resultAdapter?: "linked-list-node-index" | "tree-node-value";
   /** Problem-specific semantic validation when one literal expected value is insufficient. */
@@ -86,6 +95,15 @@ function pythonSnippet(snippetsJson: unknown): string | null {
     (s) => s?.langSlug === "python3" || s?.langSlug === "python" || s?.lang === "Python3" || s?.lang === "Python",
   );
   return py?.code ?? null;
+}
+
+function effectiveCodeSnippets(p: ProblemPromptInput, allowUnverifiedSignatures: boolean): unknown {
+  if (pythonSnippet(p.codeSnippetsJson)) return p.codeSnippetsJson;
+  const code = OFFLINE_PYTHON_SIGNATURES[p.titleSlug];
+  if (code && !allowUnverifiedSignatures && !OFFLINE_REFERENCE_VERIFIED_PROBLEMS.has(p.titleSlug)) {
+    return p.codeSnippetsJson;
+  }
+  return code ? [{ lang: 'Python3', langSlug: 'python3', code }] : p.codeSnippetsJson;
 }
 
 function extractPythonSignature(snippetsJson: unknown): { methodName: string | null; signature: string | null } {
@@ -145,6 +163,28 @@ function parameterCount(signature: string | null): number {
   }
   // Python instance-method signatures include `self` as their first parameter.
   return Math.max(0, count - 1);
+}
+
+function parameterNames(signature: string | null): string[] {
+  if (!signature) return [];
+  const body = signature.slice(signature.indexOf('(') + 1, signature.lastIndexOf(')'));
+  const parameters: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of body) {
+    if (ch === ',' && depth === 0) {
+      parameters.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+    if ('[({'.includes(ch)) depth += 1;
+    else if (']})'.includes(ch)) depth = Math.max(0, depth - 1);
+  }
+  if (current.trim()) parameters.push(current);
+  return parameters
+    .map((parameter) => parameter.trim().replace(/^\*+/, '').split(/[:=]/, 1)[0]?.trim() ?? '')
+    .filter((name) => name && name !== 'self' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name));
 }
 
 function parseLeetCodeLiteral(raw: string): unknown {
@@ -211,6 +251,37 @@ function extractDesignInputs(text: string): [unknown, unknown] | null {
   }
 }
 
+function extractOfficialInputs(text: string, names: string[]): unknown[][] {
+  if (names.length === 0) return [];
+  const blocks = Array.from(
+    text.matchAll(/(?:^|\n)\s*Input:?\s*([\s\S]*?)(?=\n\s*Output:?\s*)/gi),
+    (match) => match[1],
+  );
+  const escapedNames = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const parsed: unknown[][] = [];
+
+  for (const block of blocks) {
+    try {
+      const values = escapedNames.map((escapedName) => {
+        const assignment = new RegExp(`(?:^|[,\\n])\\s*${escapedName}\\s*=\\s*`, 'i').exec(block);
+        if (!assignment) throw new Error('Named argument missing from statement example');
+        return parseFirstLeetCodeLiteral(block.slice((assignment.index ?? 0) + assignment[0].length));
+      });
+      parsed.push(values);
+      continue;
+    } catch {
+      if (names.length !== 1) continue;
+      try {
+        parsed.push([parseFirstLeetCodeLiteral(block)]);
+      } catch {
+        // Some examples contain prose or judge-only values rather than the
+        // method's actual arguments. Those need a dedicated adapter.
+      }
+    }
+  }
+  return parsed;
+}
+
 const UNPARSED_OUTPUT = Symbol('unparsed-output');
 
 function extractOfficialOutputs(text: string): Array<unknown | typeof UNPARSED_OUTPUT> {
@@ -230,18 +301,65 @@ function extractOfficialOutputs(text: string): Array<unknown | typeof UNPARSED_O
 }
 
 /** Build a no-network suite from the examples already shipped in the problem statement. */
-export function buildOfficialExampleSuite(p: ProblemPromptInput): GeneratedSuite | null {
-  const { methodName, signature } = extractPythonSignature(p.codeSnippetsJson);
-  const className = extractDesignClassName(p.codeSnippetsJson);
+export function buildOfficialExampleSuite(
+  p: ProblemPromptInput,
+  options: { allowUnverifiedSignatures?: boolean } = {},
+): GeneratedSuite | null {
+  const codeSnippets = effectiveCodeSnippets(p, options.allowUnverifiedSignatures === true);
+  const { methodName, signature } = extractPythonSignature(codeSnippets);
+  const className = extractDesignClassName(codeSnippets);
   const designConstructorTakesTree = /def\s+__init__\s*\([^)]*\bTreeNode\b[^)]*\)/.test(
-    pythonSnippet(p.codeSnippetsJson) ?? '',
+    pythonSnippet(codeSnippets) ?? '',
   );
   const designConstructorTakesIterator = /def\s+__init__\s*\([^)]*\bIterator\b[^)]*\)/.test(
-    pythonSnippet(p.codeSnippetsJson) ?? '',
+    pythonSnippet(codeSnippets) ?? '',
   );
   const text = stripHtml(p.contentEn || p.contentZh, 100_000);
   const outputValues = extractOfficialOutputs(text);
   const rawInputs = p.exampleTestcases?.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) ?? [];
+
+  const hiddenNumberAdapter = p.titleSlug === 'first-bad-version'
+    ? 'first-bad-version' as const
+    : p.titleSlug === 'guess-number-higher-or-lower'
+      ? 'guess-number' as const
+      : null;
+  if (
+    hiddenNumberAdapter && methodName && rawInputs.length === outputValues.length * 2 &&
+    outputValues.length > 0 && !outputValues.some((value) => value === UNPARSED_OUTPUT)
+  ) {
+    try {
+      return {
+        methodName,
+        inputAdapter: hiddenNumberAdapter,
+        source: 'official-examples',
+        comparison: 'exact',
+        cases: outputValues.map((expected, index) => ({
+          input: [parseLeetCodeLiteral(rawInputs[index * 2]), parseLeetCodeLiteral(rawInputs[index * 2 + 1])],
+          expected,
+        })),
+        notes: 'Simulates the hidden number API entirely offline.',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  if (
+    p.titleSlug === 'find-the-celebrity' && methodName && outputValues.length > 0 &&
+    !outputValues.some((value) => value === UNPARSED_OUTPUT)
+  ) {
+    const statementInputs = extractOfficialInputs(text, ['graph']);
+    if (statementInputs.length === outputValues.length) {
+      return {
+        methodName,
+        inputAdapter: 'celebrity-graph',
+        source: 'official-examples',
+        comparison: 'exact',
+        cases: statementInputs.map((input, index) => ({ input, expected: outputValues[index] })),
+        notes: 'Simulates the hidden knows(a, b) API entirely offline.',
+      };
+    }
+  }
 
   if (
     ['linked-list-cycle', 'linked-list-cycle-ii'].includes(p.titleSlug) &&
@@ -271,7 +389,7 @@ export function buildOfficialExampleSuite(p: ProblemPromptInput): GeneratedSuite
     }
   }
 
-  if (!methodName && className && rawInputs.length >= 2 && outputValues.length >= 1) {
+  if (!methodName && className && outputValues.length >= 1) {
     try {
       const makeCase = (operations: unknown, argumentsByOperation: unknown, expected: unknown) => {
         if (
@@ -323,19 +441,32 @@ export function buildOfficialExampleSuite(p: ProblemPromptInput): GeneratedSuite
   }
 
   const paramCount = parameterCount(signature);
-  if (!methodName || paramCount === 0 || !p.exampleTestcases) return null;
+  if (!methodName || paramCount === 0) return null;
 
-  const inputs = rawInputs;
-  if (inputs.length === 0 || inputs.length % paramCount !== 0) return null;
+  let parsedInputs: unknown[][] = [];
+  if (rawInputs.length > 0 && rawInputs.length % paramCount === 0) {
+    try {
+      parsedInputs = Array.from({ length: rawInputs.length / paramCount }, (_, caseIndex) =>
+        rawInputs
+          .slice(caseIndex * paramCount, (caseIndex + 1) * paramCount)
+          .map(parseLeetCodeLiteral),
+      );
+    } catch {
+      parsedInputs = [];
+    }
+  }
+  const statementInputs = extractOfficialInputs(text, parameterNames(signature));
+  if (statementInputs.length === outputValues.length && parsedInputs.length !== outputValues.length) {
+    parsedInputs = statementInputs;
+  }
+  if (parsedInputs.length === 0) return null;
 
-  const caseCount = inputs.length / paramCount;
+  const caseCount = parsedInputs.length;
   if (outputValues.length !== caseCount || outputValues.some((value) => value === UNPARSED_OUTPUT)) return null;
 
   try {
     const cases = Array.from({ length: caseCount }, (_, caseIndex) => ({
-      input: inputs
-        .slice(caseIndex * paramCount, (caseIndex + 1) * paramCount)
-        .map(parseLeetCodeLiteral),
+      input: parsedInputs[caseIndex],
       expected: outputValues[caseIndex],
     }));
     return {

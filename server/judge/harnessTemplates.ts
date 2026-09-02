@@ -26,6 +26,11 @@ import sys, json, traceback, time
 # def twoSum(self, nums: List[int], target: int) -> List[int]: without an explicit import.
 from typing import List, Dict, Set, Tuple, Optional, Deque, Any, Union, Callable, Iterable, Iterator
 from collections import defaultdict, Counter, deque, OrderedDict
+from functools import cache, lru_cache, reduce
+from itertools import accumulate, chain, combinations, combinations_with_replacement, groupby, pairwise, permutations, product
+from math import ceil, comb, floor, gcd, inf, lcm, sqrt
+from heapq import heapify, heappop, heappush, heapreplace, nlargest, nsmallest
+from bisect import bisect, bisect_left, bisect_right, insort, insort_left, insort_right
 import math, heapq, bisect, itertools, functools, re, string, random, copy
 
 class ListNode:
@@ -49,6 +54,33 @@ class Iterator:
         return value
     def hasNext(self):
         return self.index < len(self.values)
+
+class SortedList(list):
+    """Small dependency-free subset of sortedcontainers.SortedList.
+
+    Offline judge examples are intentionally small, so list insertion is fast
+    enough and avoids requiring a separately installed Python package.
+    """
+    def __init__(self, iterable=(), key=None):
+        self._key = key or (lambda value: value)
+        super().__init__(sorted(iterable, key=self._key))
+    def add(self, value):
+        keys = [self._key(item) for item in self]
+        self.insert(bisect_right(keys, self._key(value)), value)
+    def update(self, iterable):
+        for value in iterable:
+            self.add(value)
+    def discard(self, value):
+        try:
+            self.remove(value)
+        except ValueError:
+            pass
+    def bisect_left(self, value):
+        return bisect_left([self._key(item) for item in self], self._key(value))
+    def bisect_right(self, value):
+        return bisect_right([self._key(item) for item in self], self._key(value))
+    def count(self, value):
+        return super().count(value)
 
 def _list_to_linked(arr):
     if not arr: return None
@@ -462,6 +494,30 @@ for i, c in enumerate(cases):
                               "error": "tree-node reference value was not found in the tree"}))
             continue
         args = [root, *referenced_nodes]
+    elif input_adapter == "first-bad-version":
+        if len(args) != 2 or not all(isinstance(value, int) for value in args):
+            print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": 0,
+                              "error": "first-bad-version input must be [n, bad]"}))
+            continue
+        n, bad = args
+        _user_ns["isBadVersion"] = lambda version, first=bad: version >= first
+        args = [n]
+    elif input_adapter == "guess-number":
+        if len(args) != 2 or not all(isinstance(value, int) for value in args):
+            print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": 0,
+                              "error": "guess-number input must be [n, pick]"}))
+            continue
+        n, pick = args
+        _user_ns["guess"] = lambda value, hidden=pick: -1 if value > hidden else (1 if value < hidden else 0)
+        args = [n]
+    elif input_adapter == "celebrity-graph":
+        if len(args) != 1 or not isinstance(args[0], list):
+            print(json.dumps({"i": i, "ok": False, "actual": None, "elapsedMs": 0,
+                              "error": "celebrity input must contain one adjacency matrix"}))
+            continue
+        graph = args[0]
+        _user_ns["knows"] = lambda left, right, matrix=graph: bool(matrix[left][right])
+        args = [len(graph)]
     else:
         args = _convert_args(args)
     expected = c.get("expected")

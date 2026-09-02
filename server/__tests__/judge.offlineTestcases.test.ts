@@ -7,6 +7,128 @@ afterEach(() => {
 });
 
 describe('offline testcase generation', () => {
+  it('recovers positional inputs from statement examples when raw exampleTestcases are missing', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'longest-substring-with-at-most-two-distinct-characters',
+      titleEn: 'Longest Substring with At Most Two Distinct Characters',
+      contentEn: `
+        <pre><strong>Input:</strong> s = "eceba"
+        <strong>Output:</strong> 3</pre>
+        <pre><strong>Input:</strong> s = "ccaabbb"
+        <strong>Output:</strong> 5</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Medium',
+      codeSnippetsJson: [{
+        langSlug: 'python3',
+        code: 'class Solution:\n    def lengthOfLongestSubstringTwoDistinct(self, s: str) -> int:\n        pass',
+      }],
+      exampleTestcases: null,
+    });
+
+    expect(suite).toMatchObject({
+      methodName: 'lengthOfLongestSubstringTwoDistinct',
+      source: 'official-examples',
+      cases: [
+        { input: ['eceba'], expected: 3 },
+        { input: ['ccaabbb'], expected: 5 },
+      ],
+    });
+  });
+
+  it('maps named statement inputs to signature order and parses multiline literals', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'premium-matrix-fixture',
+      titleEn: 'Premium Matrix Fixture',
+      contentEn: `
+        <pre><strong>Input:</strong> k = 2, matrix = [
+          [1, 2],
+          [3, 4]
+        ]
+        <strong>Output:</strong> 7</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Medium',
+      codeSnippetsJson: [{
+        langSlug: 'python3',
+        code: 'class Solution:\n    def score(self, matrix: List[List[int]], k: int) -> int:\n        pass',
+      }],
+      exampleTestcases: null,
+    });
+
+    expect(suite?.cases).toEqual([{
+      input: [[[1, 2], [3, 4]], 2],
+      expected: 7,
+    }]);
+  });
+
+  it('uses complete statement examples when stored raw inputs omit later cases', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'incomplete-raw-input-fixture',
+      titleEn: 'Incomplete Raw Input Fixture',
+      contentEn: `
+        <pre><strong>Input:</strong> left = 1, right = 2
+        <strong>Output:</strong> 3</pre>
+        <pre><strong>Input:</strong> left = 10, right = 20
+        <strong>Output:</strong> 30</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Easy',
+      codeSnippetsJson: [{
+        langSlug: 'python3',
+        code: 'class Solution:\n    def add(self, left: int, right: int) -> int:\n        pass',
+      }],
+      exampleTestcases: '1\n2',
+    });
+
+    expect(suite?.cases).toEqual([
+      { input: [1, 2], expected: 3 },
+      { input: [10, 20], expected: 30 },
+    ]);
+  });
+
+  it('uses the bundled public signature catalog for premium problems', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'binary-tree-upside-down',
+      titleEn: 'Binary Tree Upside Down',
+      contentEn: `
+        <pre><strong>Input:</strong> root = [1,2,3,4,5]
+        <strong>Output:</strong> [4,5,2,null,null,3,1]</pre>
+        <pre><strong>Input:</strong> root = []
+        <strong>Output:</strong> []</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Medium',
+      codeSnippetsJson: null,
+      exampleTestcases: null,
+    });
+
+    expect(suite).toMatchObject({
+      methodName: 'upsideDownBinaryTree',
+      cases: [
+        { input: [[1, 2, 3, 4, 5]], expected: [4, 5, 2, null, null, 3, 1] },
+        { input: [[]], expected: [] },
+      ],
+    });
+  });
+
+  it('does not activate a premium signature until its local judge is reference-verified', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'nested-list-weight-sum',
+      titleEn: 'Nested List Weight Sum',
+      contentEn: `
+        <pre><strong>Input:</strong> nestedList = [[1,1],2,[1,1]]
+        <strong>Output:</strong> 10</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Medium',
+      codeSnippetsJson: null,
+      exampleTestcases: null,
+    });
+
+    expect(suite).toBeNull();
+  });
+
   it('builds a runnable suite from official examples without an API key', async () => {
     vi.stubEnv('BUILT_IN_FORGE_API_KEY', '');
     vi.stubEnv('DEEPSEEK_API_KEY', '');
@@ -317,6 +439,113 @@ describe('offline testcase generation', () => {
         ],
         expected: [null, null, null, null, 2, null, 3],
       }],
+    });
+  });
+
+  it('builds premium design suites entirely from the statement and signature catalog', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'moving-average-from-data-stream',
+      titleEn: 'Moving Average from Data Stream',
+      contentEn: `
+        <pre><strong>Input</strong>
+        ["MovingAverage", "next", "next", "next", "next"]
+        [[3], [1], [10], [3], [5]]
+        <strong>Output</strong>
+        [null, 1.0, 5.5, 4.66667, 6.0]</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Easy',
+      codeSnippetsJson: null,
+      exampleTestcases: null,
+    });
+
+    expect(suite).toMatchObject({
+      methodName: '__operations__',
+      className: 'MovingAverage',
+      cases: [{
+        input: [
+          ['MovingAverage', 'next', 'next', 'next', 'next'],
+          [[3], [1], [10], [3], [5]],
+        ],
+        expected: [null, 1, 5.5, 4.66667, 6],
+      }],
+    });
+  });
+
+  it.each([
+    {
+      titleSlug: 'first-bad-version',
+      methodName: 'firstBadVersion',
+      signature: 'n: int',
+      rawInputs: '5\n4\n1\n1',
+      outputs: '4\n1',
+      inputAdapter: 'first-bad-version',
+      cases: [
+        { input: [5, 4], expected: 4 },
+        { input: [1, 1], expected: 1 },
+      ],
+    },
+    {
+      titleSlug: 'guess-number-higher-or-lower',
+      methodName: 'guessNumber',
+      signature: 'n: int',
+      rawInputs: '10\n6\n1\n1\n2\n1',
+      outputs: '6\n1\n1',
+      inputAdapter: 'guess-number',
+      cases: [
+        { input: [10, 6], expected: 6 },
+        { input: [1, 1], expected: 1 },
+        { input: [2, 1], expected: 1 },
+      ],
+    },
+  ])('builds an offline hidden-API suite for $titleSlug', (fixture) => {
+    const outputBlocks = fixture.outputs
+      .split('\n')
+      .map((output) => `<pre><strong>Input:</strong> hidden fixture\n<strong>Output:</strong> ${output}</pre>`)
+      .join('\n');
+    const suite = buildOfficialExampleSuite({
+      titleSlug: fixture.titleSlug,
+      titleEn: fixture.titleSlug,
+      contentEn: outputBlocks,
+      contentZh: null,
+      difficulty: 'Easy',
+      codeSnippetsJson: [{
+        langSlug: 'python3',
+        code: `class Solution:\n    def ${fixture.methodName}(self, ${fixture.signature}) -> int:\n        pass`,
+      }],
+      exampleTestcases: fixture.rawInputs,
+    });
+
+    expect(suite).toMatchObject({
+      methodName: fixture.methodName,
+      inputAdapter: fixture.inputAdapter,
+      cases: fixture.cases,
+    });
+  });
+
+  it('builds a celebrity API suite from the hidden graph in premium statement examples', () => {
+    const suite = buildOfficialExampleSuite({
+      titleSlug: 'find-the-celebrity',
+      titleEn: 'Find the Celebrity',
+      contentEn: `
+        <pre><strong>Input:</strong> graph = [[1,1,0],[0,1,0],[1,1,1]]
+        <strong>Output:</strong> 1</pre>
+        <pre><strong>Input:</strong> graph = [[1,0,1],[1,1,0],[0,1,1]]
+        <strong>Output:</strong> -1</pre>
+      `,
+      contentZh: null,
+      difficulty: 'Medium',
+      codeSnippetsJson: null,
+      exampleTestcases: null,
+    });
+
+    expect(suite).toMatchObject({
+      methodName: 'findCelebrity',
+      inputAdapter: 'celebrity-graph',
+      cases: [
+        { input: [[[1, 1, 0], [0, 1, 0], [1, 1, 1]]], expected: 1 },
+        { input: [[[1, 0, 1], [1, 1, 0], [0, 1, 1]]], expected: -1 },
+      ],
     });
   });
 
