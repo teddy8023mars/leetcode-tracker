@@ -98,6 +98,7 @@ export const en = {
     loginFirst: 'Sign in to trigger a manual sync.',
     statusLabel: 'Status',
     runAiPregenerate: 'Generate AI solutions',
+    aiNeedsLlm: 'Needs an AI model — configure one in Settings.',
   },
   list: {
     problemCount: '{count} problems',
@@ -117,7 +118,15 @@ export const en = {
     diff: 'Difficulty',
     ac: 'AC%',
   },
-  settings: { language: 'Language', backup: 'Backup' },
+  settings: {
+    language: 'Language',
+    backup: 'Backup',
+    llm: 'AI model',
+    llmConfigured: 'Configured — AI features are available.',
+    llmMissing: 'Not configured. Browsing, sync and judging problems with stored test data all work; AI solutions and generating test cases for a new problem need a key you provide.',
+    llmHowTo: 'Add your endpoint and key to config.json, then restart the app:',
+    llmConfigPath: '~/Library/Application Support/leetcode-tracker/config.json',
+  },
   progress: {
     todo: 'Todo',
     reviewing: 'Reviewing',

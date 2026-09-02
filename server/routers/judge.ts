@@ -16,6 +16,7 @@ import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
 import { judgeSqlCases, extractReferenceSql, nonInsertStatements } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
 import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
+import { LLM_NOT_CONFIGURED_ERR } from "@shared/const";
 
 const LanguageSchema = z.enum(["python", "java", "cpp"]);
 
@@ -115,6 +116,10 @@ async function loadOrGenerateSuite(problemId: number): Promise<{ suite: Generate
       console.warn("[judge] reference solution execution threw; falling back to LLM expected", e);
     }
   }
+
+  // Only model-generated suites are worth caching: the example fallback has no
+  // real expected values, so storing it would freeze a bad suite in place.
+  if (suite.source !== "llm") return { suite, cached: false };
 
   // Best-effort cache write; do not fail the run if cache write hits a race.
   try {
@@ -256,6 +261,11 @@ export const judgeRouter = router({
         const { suite } = await loadOrGenerateSuite(input.problemId);
         outcome = await judgeOnce(input.language, input.code, suite);
       } catch (e) {
+        // No model configured and no stored suite: tell the user to configure
+        // one instead of recording a bogus internal_error submission.
+        if (e instanceof Error && e.message.startsWith(LLM_NOT_CONFIGURED_ERR)) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: e.message });
+        }
         console.error("[judge.run] internal error", e);
         outcome = {
           verdict: "internal_error",

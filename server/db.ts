@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2";
 import {
   InsertUser,
   users,
@@ -27,7 +28,15 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Drizzle reads and writes MySQL timestamps as UTC, but server-side
+      // defaults (DEFAULT CURRENT_TIMESTAMP, NOW()) use the session timezone —
+      // on a machine outside UTC that skews every db-generated timestamp by the
+      // offset. Pin the session to UTC so both sides agree.
+      const pool = mysql.createPool({ uri: process.env.DATABASE_URL, timezone: "Z" });
+      pool.on("connection", (conn) => {
+        conn.query("SET time_zone = '+00:00'");
+      });
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -260,10 +269,50 @@ export async function startSyncLog(syncType: InsertSyncLog['syncType']): Promise
   return Number(result?.insertId ?? 0);
 }
 
+export type SyncProgressPatch = {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  /** Expected total, when the task can estimate it. Drives the UI progress bar. */
+  total?: number;
+  /** Short label of the current stage, e.g. 'problems' or 'companies'. */
+  phase?: string;
+};
+
+/** Write mid-run counters so a long sync shows progress instead of looking hung. */
+export async function updateSyncLogProgress(id: number, p: SyncProgressPatch): Promise<void> {
+  const db = await getDb();
+  if (!db || !id) return;
+  await db.update(syncLogs).set({
+    itemsProcessed: p.processed,
+    itemsSucceeded: p.succeeded,
+    itemsFailed: p.failed,
+    metaJson: { total: p.total ?? null, phase: p.phase ?? null },
+  }).where(eq(syncLogs.id, id));
+}
+
 export async function finishSyncLog(id: number, patch: Partial<InsertSyncLog>): Promise<void> {
   const db = await getDb();
   if (!db || !id) return;
   await db.update(syncLogs).set({ ...patch, finishedAt: new Date() }).where(eq(syncLogs.id, id));
+}
+
+/**
+ * A sync that was in flight when the process died stays 'running' forever and
+ * then blocks every later run of that type. Clear those on boot.
+ */
+export async function failStaleRunningSyncs(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const stale = await db.select().from(syncLogs).where(eq(syncLogs.status, 'running'));
+  if (stale.length === 0) return 0;
+  await db.update(syncLogs).set({
+    status: 'failed',
+    finishedAt: new Date(),
+    errorSummary: 'Interrupted by app restart',
+  }).where(eq(syncLogs.status, 'running'));
+  console.log(`[Database] marked ${stale.length} interrupted sync log(s) as failed`);
+  return stale.length;
 }
 
 export async function findRunningSyncOfType(syncType: InsertSyncLog['syncType']): Promise<SyncLog | null> {
@@ -287,6 +336,19 @@ export async function upsertCompanyTag(c: InsertCompanyTag): Promise<void> {
   await db.insert(companyTags).values(c).onDuplicateKeyUpdate({
     set: { companyName: c.companyName, frequency: c.frequency, source: c.source, syncedAt: new Date() },
   });
+}
+
+/** Newest syncedAt across one company's tags, or null when it has none. */
+export async function getCompanyTagsLastSyncedAt(companySlug: string): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ syncedAt: companyTags.syncedAt })
+    .from(companyTags)
+    .where(eq(companyTags.companySlug, companySlug))
+    .orderBy(desc(companyTags.syncedAt))
+    .limit(1);
+  return rows[0]?.syncedAt ?? null;
 }
 
 export async function upsertProblemList(l: InsertProblemList): Promise<number> {

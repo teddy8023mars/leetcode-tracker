@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../_core/llm', () => ({ invokeLLM: vi.fn() }));
 
@@ -7,7 +7,12 @@ import { generateTestcaseSuite } from '../judge/testcaseGenerator';
 
 describe('generateTestcaseSuite provider compatibility', () => {
   beforeEach(() => {
+    vi.stubEnv('BUILT_IN_FORGE_API_KEY', 'test-key');
     vi.mocked(invokeLLM).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('requests the portable JSON object response format', async () => {

@@ -8,7 +8,17 @@ import fs from 'node:fs';
  * the web version uses.
  *
  * Defaults can be overridden in <userData>/config.json, e.g.
- *   { "DATABASE_URL": "mysql://root@localhost:3306/leetcode_tracker" }
+ *   {
+ *     "DATABASE_URL": "mysql://root@localhost:3306/leetcode_tracker",
+ *     "BUILT_IN_FORGE_API_URL": "https://api.openai.com",
+ *     "BUILT_IN_FORGE_API_KEY": "sk-...",
+ *     "BUILT_IN_FORGE_MODEL": "your-model-id"
+ *   }
+ *
+ * No model endpoint is bundled on purpose: AI features (test-case generation,
+ * AI solutions, translation) are opt-in and run against a key the user owns.
+ * Everything else — browsing, sync, judging anything with stored test data —
+ * works without one.
  */
 
 const ENV_DEFAULTS = {
@@ -16,9 +26,6 @@ const ENV_DEFAULTS = {
   LOCAL_DESKTOP: '1',
   DATABASE_URL: 'mysql://root@localhost:3306/leetcode_tracker',
   OWNER_OPEN_ID: 'local-dev',
-  BUILT_IN_FORGE_API_URL: 'https://llm-router.butterfly-effect.dev',
-  BUILT_IN_FORGE_API_KEY: 'unused',
-  BUILT_IN_FORGE_MODEL: 'claude-sonnet-4-6',
 };
 
 const PREFERRED_PORT = 3900;

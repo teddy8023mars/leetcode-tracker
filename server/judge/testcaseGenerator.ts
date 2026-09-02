@@ -10,7 +10,9 @@
  *     back to example-only suite extracted from `exampleTestcases`).
  */
 
+import { LLM_NOT_CONFIGURED_ERR } from "@shared/const";
 import { invokeLLM } from "../_core/llm";
+import { isLlmConfigured } from "../_core/env";
 import { jsonrepair } from "jsonrepair";
 
 export interface ProblemPromptInput {
@@ -118,6 +120,14 @@ Rules:
 const MAX_RETRIES = 2;
 
 export async function generateTestcaseSuite(p: ProblemPromptInput): Promise<GeneratedSuite> {
+  // Without a model we cannot invent expected values, and the example-testcase
+  // fallback below only recovers *inputs* — judging against made-up expectations
+  // would be worse than saying so. Problems with a cached suite still run.
+  if (!isLlmConfigured()) {
+    throw new Error(
+      `${LLM_NOT_CONFIGURED_ERR}: this problem has no stored test cases, and generating them needs a model API key.`,
+    );
+  }
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {

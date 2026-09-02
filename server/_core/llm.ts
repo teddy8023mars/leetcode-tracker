@@ -1,4 +1,5 @@
-import { ENV } from "./env";
+import { LLM_NOT_CONFIGURED_ERR } from "@shared/const";
+import { ENV, isLlmConfigured } from "./env";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -217,8 +218,11 @@ const resolveApiUrl = () =>
     : "https://forge.manus.im/v1/chat/completions";
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!isLlmConfigured()) {
+    throw new Error(
+      `${LLM_NOT_CONFIGURED_ERR}: no model API key configured. Set BUILT_IN_FORGE_API_URL and ` +
+        `BUILT_IN_FORGE_API_KEY (desktop: <userData>/config.json) to enable AI features.`,
+    );
   }
 };
 

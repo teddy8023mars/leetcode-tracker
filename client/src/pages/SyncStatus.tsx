@@ -13,6 +13,7 @@ type SyncRow = {
   itemsProcessed?: number | null;
   itemsSucceeded?: number | null;
   itemsFailed?: number | null;
+  metaJson?: { total?: number | null; phase?: string | null } | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -27,6 +28,8 @@ export function SyncStatus() {
   const { user } = useAuth();
   const q = trpc.sync.status.useQuery(undefined, { staleTime: 2_000, refetchInterval: 2_000 });
   const problemsQ = trpc.problems.list.useQuery({ limit: 1 }, { staleTime: 60_000 });
+  const llmQ = trpc.system.llmStatus.useQuery(undefined, { staleTime: 60_000 });
+  const llmConfigured = llmQ.data?.configured ?? false;
   const utils = trpc.useUtils();
   const trigger = trpc.sync.triggerManual.useMutation({
     onSuccess: () => {
@@ -59,7 +62,8 @@ export function SyncStatus() {
             <Button
               variant="outline"
               onClick={() => trigger.mutate({ syncType: 'ai-pregenerate' })}
-              disabled={trigger.isPending}
+              disabled={trigger.isPending || !llmConfigured}
+              title={llmConfigured ? undefined : t('sync.aiNeedsLlm')}
             >
               {trigger.isPending ? t('loading') : t('sync.runAiPregenerate')}
             </Button>
@@ -68,6 +72,10 @@ export function SyncStatus() {
           <span className="text-xs text-ink-soft font-mono">{t('sync.loginFirst')}</span>
         )}
       </div>
+
+      {!llmQ.isLoading && !llmConfigured && (
+        <p className="text-xs text-ink-soft font-mono">{t('sync.aiNeedsLlm')}</p>
+      )}
 
       <h2 className="font-mono text-xs uppercase text-ink-soft tracking-widest">
         {t('sync.recent')}
@@ -93,9 +101,13 @@ export function SyncStatus() {
             const totalProblems = (problemsQ.data as { total?: number } | undefined)?.total ?? 0;
             const isAiTask = r.syncType === 'ai-pregenerate';
             const isRunning = r.status === 'running';
-            const expectedTotal = isAiTask ? totalProblems * 2 : 0;
+            // Tasks report their own total mid-run; fall back to the old
+            // estimate for logs written before that existed.
+            const reportedTotal = r.metaJson?.total ?? 0;
+            const expectedTotal =
+              reportedTotal > 0 ? reportedTotal : isAiTask ? totalProblems * 2 : 0;
             const processed = r.itemsProcessed ?? 0;
-            const pct = isRunning && isAiTask && expectedTotal > 0
+            const pct = isRunning && expectedTotal > 0
               ? Math.min(Math.round((processed / expectedTotal) * 100), 100)
               : null;
 
@@ -129,7 +141,9 @@ export function SyncStatus() {
                   {pct !== null ? (
                     <div className="flex items-center gap-2">
                       <Progress value={pct} className="h-2 w-24" />
-                      <span className="text-xs text-ink-soft">{pct}%</span>
+                      <span className="text-xs text-ink-soft">
+                        {processed}/{expectedTotal}
+                      </span>
                     </div>
                   ) : (
                     processed

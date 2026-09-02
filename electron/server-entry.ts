@@ -9,6 +9,7 @@ import { registerStorageProxy } from '../server/_core/storageProxy';
 import { appRouter } from '../server/routers';
 import { createContext } from '../server/_core/context';
 import { createScheduledRouter } from '../server/scheduled';
+import { failStaleRunningSyncs } from '../server/db';
 
 export { ensureSeeded } from '../server/_core/seedImport';
 export { ensureDesktopSchema } from '../server/_core/desktopSchema';
@@ -38,6 +39,7 @@ export async function startServer(opts: {
   staticDir: string;
   preferredPort: number;
 }): Promise<number> {
+  await failStaleRunningSyncs().catch(() => {});
   const app = express();
   const server = createServer(app);
   app.use(express.json({ limit: '50mb' }));

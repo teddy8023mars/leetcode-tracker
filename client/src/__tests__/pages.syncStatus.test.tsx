@@ -14,6 +14,9 @@ vi.mock('@/lib/trpc', () => ({
     problems: {
       list: { useQuery: vi.fn().mockReturnValue({ data: { total: 0 } }) },
     },
+    system: {
+      llmStatus: { useQuery: vi.fn().mockReturnValue({ data: { configured: true } }) },
+    },
     useUtils: vi.fn(() => ({ sync: { status: { invalidate: vi.fn() } } })),
   },
 }));

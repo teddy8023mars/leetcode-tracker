@@ -99,6 +99,7 @@ export const zh: Dict = {
     loginFirst: '登录后才能触发手动同步。',
     statusLabel: '状态',
     runAiPregenerate: 'AI 预生成题解',
+    aiNeedsLlm: '需要先配置 AI 模型（见「设置」）。',
   },
   list: {
     problemCount: '{count} 道题',
@@ -118,7 +119,15 @@ export const zh: Dict = {
     diff: '难度',
     ac: '通过率',
   },
-  settings: { language: '语言', backup: '备份' },
+  settings: {
+    language: '语言',
+    backup: '备份',
+    llm: 'AI 模型',
+    llmConfigured: '已配置，AI 功能可用。',
+    llmMissing: '未配置。浏览、同步、以及判定已有测试数据的题目都不受影响；AI 题解和为新题目生成测试用例需要你自己的 key。',
+    llmHowTo: '在 config.json 里填上你的接口地址和 key，然后重启 app：',
+    llmConfigPath: '~/Library/Application Support/leetcode-tracker/config.json',
+  },
   progress: {
     todo: '待做',
     reviewing: '复习中',

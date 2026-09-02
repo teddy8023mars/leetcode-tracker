@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
+import { isLlmConfigured } from "./env";
 import { adminProcedure, publicProcedure, router } from "./trpc";
 
 export const systemRouter = router({
@@ -12,6 +13,9 @@ export const systemRouter = router({
     .query(() => ({
       ok: true,
     })),
+
+  /** Whether AI features (test-case generation, AI solutions) are usable. */
+  llmStatus: publicProcedure.query(() => ({ configured: isLlmConfigured() })),
 
   notifyOwner: adminProcedure
     .input(
