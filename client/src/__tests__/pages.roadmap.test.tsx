@@ -66,6 +66,7 @@ function roadmapData() {
 describe('Roadmap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/roadmap/code-thinking');
     window.localStorage.removeItem('lt.lang');
     (trpc.roadmaps.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>)
       .mockReturnValue({ data: roadmapData(), isLoading: false });
@@ -93,6 +94,19 @@ describe('Roadmap', () => {
       .toHaveAttribute('rel', 'noreferrer');
     expect(screen.getByRole('link', { name: /Based on Carl.*opens in system browser/ }))
       .toHaveAttribute('target', '_blank');
+  });
+
+  it('records the exact roadmap chapter when opening a problem', async () => {
+    render(<LangProvider><Roadmap slug="code-thinking" /></LangProvider>);
+
+    await userEvent.click(screen.getByRole('link', { name: /^Two$/ }));
+
+    expect(window.history.state).toMatchObject({
+      appNavigationOrigin: {
+        section: 'roadmap',
+        href: '/roadmap/code-thinking#section-array',
+      },
+    });
   });
 
   it('renders a completed state with a localized review action to the first chapter', async () => {

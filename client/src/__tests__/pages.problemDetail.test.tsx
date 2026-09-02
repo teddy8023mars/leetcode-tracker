@@ -118,6 +118,33 @@ describe('ProblemDetail', () => {
 
     expect(screen.getByRole('heading', { name: 'Progressive hints' })).toBeInTheDocument();
     expect(screen.queryByText('Name the invariant.')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Back to Today/ })).toHaveAttribute('href', '/today');
+  });
+
+  it('returns to the Review section recorded by the entry link', () => {
+    (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: problem('two-sum'), isLoading: false,
+    });
+    window.history.replaceState({
+      appNavigationOrigin: { section: 'review', href: '/review?queue=due' },
+    }, '', '/problems/two-sum');
+
+    render(<LangProvider><ProblemDetail titleSlug="two-sum" /></LangProvider>);
+
+    expect(screen.getByRole('link', { name: /Back to Review/ })).toHaveAttribute('href', '/review?queue=due');
+  });
+
+  it('falls back to Problems when the recorded origin is unsafe', () => {
+    (trpc.problems.getBySlug.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: problem('two-sum'), isLoading: false,
+    });
+    window.history.replaceState({
+      appNavigationOrigin: { section: 'review', href: 'https://example.com/review' },
+    }, '', '/problems/two-sum');
+
+    render(<LangProvider><ProblemDetail titleSlug="two-sum" /></LangProvider>);
+
+    expect(screen.getByRole('link', { name: /All problems/ })).toHaveAttribute('href', '/problems');
   });
 
   it('uses roadmap navigation for a validated roadmap problem URL', () => {

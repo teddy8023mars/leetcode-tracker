@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLang, useT } from '@/contexts/LangContext';
 import { roadmapProblemHref, safeExternalRoadmapUrl } from '@/lib/roadmapLinks';
+import { navigationStateWithOrigin } from '@/lib/appNavigation';
 import { trpc } from '@/lib/trpc';
 
 type LocalProblem = {
@@ -130,7 +131,13 @@ export function Roadmap({ slug }: { slug: string }) {
           )}
           {nextHref && data.next?.localProblem ? (
             <Button asChild>
-              <Link href={nextHref}>{t('roadmap.continue')}</Link>
+              <Link
+                href={nextHref}
+                state={navigationStateWithOrigin({
+                  section: 'roadmap',
+                  href: `/roadmap/${data.slug}#section-${current!.section.slug}`,
+                }, window.history.state)}
+              >{t('roadmap.continue')}</Link>
             </Button>
           ) : completed && firstSection ? (
             <div className="space-y-3">
@@ -225,11 +232,15 @@ function RoadmapNode({ item, roadmapSlug, sectionSlug, allowedHosts, lang }: {
   const link = item.kind === 'leetcode' && item.mapping === 'mapped' && item.localProblem
     ? roadmapProblemHref(roadmapSlug, sectionSlug, { position: item.position, localProblem: item.localProblem })
     : null;
+  const linkState = navigationStateWithOrigin({
+    section: 'roadmap',
+    href: `/roadmap/${roadmapSlug}#section-${sectionSlug}`,
+  }, window.history.state);
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-4 py-3">
       <span className="font-mono text-xs text-ink-soft">{item.position}</span>
-      {link ? <Link href={link} className="font-medium hover:underline">{title}</Link> : <span className="font-medium">{title}</span>}
+      {link ? <Link href={link} state={linkState} className="font-medium hover:underline">{title}</Link> : <span className="font-medium">{title}</span>}
       {item.kind === 'leetcode' && item.mapping === 'mapped' && item.localProblem && <>
         <DifficultyBadge difficulty={item.localProblem.difficulty} />
         {item.localProblem.status && <StatusBadge status={item.localProblem.status} />}

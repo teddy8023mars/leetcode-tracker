@@ -10,6 +10,14 @@ export const en = {
     sync: 'Sync',
     settings: 'Settings',
   },
+  navigation: {
+    backToday: '← Back to Today',
+    backRoadmap: '← Back to Roadmap',
+    backReview: '← Back to Review',
+    backProblems: '← All problems',
+    backSync: '← Back to Sync',
+    backSettings: '← Back to Settings',
+  },
   today: {
     title: 'Today',
     subtitle: 'One calm step toward Google. No streaks, no catch-up debt.',

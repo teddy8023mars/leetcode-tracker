@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { LangProvider } from '@/contexts/LangContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -38,5 +38,26 @@ describe('AppShell', () => {
       </ThemeProvider>,
     );
     expect(container.querySelector('.blueprint-grid')).toBeTruthy();
+  });
+
+  it.each([
+    [3, 'back'],
+    [4, 'forward'],
+  ] as const)('uses mouse side button %s for browser %s navigation', (button, direction) => {
+    const historySpy = vi.spyOn(window.history, direction).mockImplementation(() => undefined);
+    render(
+      <ThemeProvider>
+        <LangProvider>
+          <AppShell><div>x</div></AppShell>
+        </LangProvider>
+      </ThemeProvider>,
+    );
+
+    const event = new MouseEvent('mousedown', { button, bubbles: true, cancelable: true });
+    window.dispatchEvent(event);
+
+    expect(historySpy).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+    historySpy.mockRestore();
   });
 });

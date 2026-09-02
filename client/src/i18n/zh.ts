@@ -11,6 +11,14 @@ export const zh: Dict = {
     sync: '同步',
     settings: '设置',
   },
+  navigation: {
+    backToday: '← 返回今日',
+    backRoadmap: '← 返回学习路线',
+    backReview: '← 返回复习',
+    backProblems: '← 返回题目列表',
+    backSync: '← 返回同步',
+    backSettings: '← 返回设置',
+  },
   today: {
     title: '今日学习',
     subtitle: '朝 Google 稳稳前进一步：不追连续打卡，也不补欠账。',

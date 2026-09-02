@@ -64,6 +64,7 @@ describe('TodayPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/today');
     window.localStorage.removeItem('lt.lang');
     (trpc.useUtils as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       study: { today: { invalidate } }, progress: { dashboard: { invalidate } },
@@ -118,6 +119,17 @@ describe('TodayPage', () => {
     expect(completeTask).toHaveBeenCalledWith({ sessionId: 12, taskKey: 'dsa' });
     await userEvent.click(screen.getByRole('button', { name: 'Minimum · 25 min' }));
     expect(setMode).toHaveBeenCalledWith({ sessionId: 12, mode: 'minimum' });
+  });
+
+  it('records Today as the origin when opening a problem', async () => {
+    (trpc.study.today.useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ data: todayData(true), isLoading: false });
+    render(<LangProvider><TodayPage /></LangProvider>);
+
+    await userEvent.click(screen.getByRole('link', { name: 'Solve with progressive hints' }));
+
+    expect(window.history.state).toMatchObject({
+      appNavigationOrigin: { section: 'today', href: '/today' },
+    });
   });
 
   it('shows a gentle restart without shame language', () => {

@@ -3,6 +3,7 @@ import { useT, useLang } from '@/contexts/LangContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BlueprintBackground } from './BlueprintBackground';
 import { Button } from '@/components/ui/button';
+import { useMouseHistoryNavigation } from '@/hooks/useMouseHistoryNavigation';
 import type { ReactNode } from 'react';
 
 const NAV = [
@@ -15,6 +16,7 @@ const NAV = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useMouseHistoryNavigation();
   const t = useT();
   const { lang, setLang } = useLang();
   const { theme, setTheme, resolved } = useTheme();

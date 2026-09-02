@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useLang, useT } from '@/contexts/LangContext';
+import { navigationStateWithOrigin } from '@/lib/appNavigation';
 import { trpc } from '@/lib/trpc';
 
 type TaskKey = 'review' | 'dsa' | 'problem' | 'career';
@@ -46,6 +47,10 @@ export function TodayPage() {
     : ['review', 'dsa', 'problem', 'career'];
   const title = lang === 'zh' ? day.titleZh : day.titleEn;
   const topic = lang === 'zh' ? day.topicZh : day.topicEn;
+  const problemLinkState = navigationStateWithOrigin(
+    { section: 'today', href: '/today' },
+    window.history.state,
+  );
 
   const setSessionMode = (nextMode: 'standard' | 'minimum') => {
     if (session) setMode.mutate({ sessionId: session.id, mode: nextMode });
@@ -124,7 +129,7 @@ export function TodayPage() {
               done={isComplete('review')} required={required.has('review')}
             >
               {data.reviewProblem && !isComplete('review') && (
-                <Button asChild variant="outline"><Link href={problemLink(data.reviewProblem.titleSlug, session.id, 'review')}>{t('today.openWarmup')}</Link></Button>
+                <Button asChild variant="outline"><Link state={problemLinkState} href={problemLink(data.reviewProblem.titleSlug, session.id, 'review')}>{t('today.openWarmup')}</Link></Button>
               )}
             </StudyTaskCard>
           )}
@@ -151,7 +156,7 @@ export function TodayPage() {
               done={isComplete('problem')} required={required.has('problem')}
             >
               {data.coreProblem && !isComplete('problem') && (
-                <Button asChild><Link href={problemLink(data.coreProblem.titleSlug, session.id, 'problem')}>{t('today.solveProblem')}</Link></Button>
+                <Button asChild><Link state={problemLinkState} href={problemLink(data.coreProblem.titleSlug, session.id, 'problem')}>{t('today.solveProblem')}</Link></Button>
               )}
             </StudyTaskCard>
           )}

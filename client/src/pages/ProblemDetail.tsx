@@ -14,6 +14,11 @@ import { tagDisplayName } from '@/lib/problemTags';
 import { stripPythonSolutions } from '@/lib/solutionMarkdown';
 import { StudyHintPanel } from '@/components/StudyHintPanel';
 import {
+  navigationStateWithOrigin,
+  readNavigationOrigin,
+  type NavigationOrigin,
+} from '@/lib/appNavigation';
+import {
   parseRoadmapContext,
   resolveRoadmapContext,
   RoadmapContextPanel,
@@ -84,6 +89,26 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
     && studyQ.data?.session?.id === studySessionId
     && studyProblem?.titleSlug === p.titleSlug
     && studyTask?.problemId === p.id;
+  const navigationOrigin: NavigationOrigin = resolvedRoadmapContext
+    ? {
+      section: 'roadmap',
+      href: `/roadmap/${roadmapView!.slug}#section-${resolvedRoadmapContext.section.slug}`,
+    }
+    : validStudyContext
+      ? { section: 'today', href: '/today' }
+      : readNavigationOrigin(window.history.state) ?? { section: 'problems', href: '/problems' };
+  const navigationState = navigationStateWithOrigin(navigationOrigin, window.history.state);
+  const backLabel = navigationOrigin.section === 'today'
+    ? t('navigation.backToday')
+    : navigationOrigin.section === 'roadmap'
+      ? t('navigation.backRoadmap')
+      : navigationOrigin.section === 'review'
+        ? t('navigation.backReview')
+        : navigationOrigin.section === 'sync'
+          ? t('navigation.backSync')
+          : navigationOrigin.section === 'settings'
+            ? t('navigation.backSettings')
+            : t('navigation.backProblems');
 
   const descriptionCard = (
     <section className="bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-border rounded-lg p-6">
@@ -106,20 +131,20 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
       <div className="flex flex-col gap-2 shrink-0">
         <div className="flex items-center justify-between">
           <Link
-            href="/problems"
+            href={navigationOrigin.href}
             className="text-sm font-mono text-ink-soft hover:text-ink w-fit"
           >
-            {t('problemList.backToProblems')}
+            {backLabel}
           </Link>
           {!resolvedRoadmapContext && (
             <div className="flex items-center gap-2">
               {prev && (
-                <Link href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                <Link state={navigationState} href={`/problems/${prev.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
                   ← #{prev.frontendId}
                 </Link>
               )}
               {next && (
-                <Link href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
+                <Link state={navigationState} href={`/problems/${next.titleSlug}`} className="text-sm font-mono text-ink-soft hover:text-ink px-2 py-1 hover:bg-secondary rounded">
                   #{next.frontendId} →
                 </Link>
               )}
@@ -181,6 +206,7 @@ export function ProblemDetail({ titleSlug }: { titleSlug: string }) {
                     <Link
                       key={sq.titleSlug}
                       href={`/problems/${sq.titleSlug}`}
+                      state={navigationState}
                       className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-secondary/50 hover:bg-secondary rounded transition-colors"
                     >
                       <span>{sq.title}</span>
