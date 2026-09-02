@@ -23,7 +23,7 @@ export { ensureDesktopSchema } from '../server/_core/desktopSchema';
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = net.createServer();
-    probe.listen(port, () => probe.close(() => resolve(true)));
+    probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
     probe.on('error', () => resolve(false));
   });
 }
@@ -61,7 +61,7 @@ export async function startServer(opts: {
   });
 
   const port = await findAvailablePort(opts.preferredPort);
-  await new Promise<void>((resolve) => server.listen(port, resolve));
+  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
   console.log(`[desktop] server running on http://localhost:${port}/`);
   return port;
 }

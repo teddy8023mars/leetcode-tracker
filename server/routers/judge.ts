@@ -15,7 +15,11 @@ import {
 import { runUserCode, type SupportedLanguage } from "../judge/sandboxRunner";
 import { judgeSqlCases, extractReferenceSql, nonInsertStatements } from "../judge/sqlJudge";
 import { buildHarness, parseHarnessOutput, type CaseLine } from "../judge/harnessTemplates";
-import { generateTestcaseSuite, type GeneratedSuite } from "../judge/testcaseGenerator";
+import {
+  buildOfficialExampleSuite,
+  generateTestcaseSuite,
+  type GeneratedSuite,
+} from "../judge/testcaseGenerator";
 import { LLM_NOT_CONFIGURED_ERR } from "@shared/const";
 
 const LanguageSchema = z.enum(["python", "java", "cpp"]);
@@ -46,6 +50,19 @@ interface JudgeOutcome {
   compileStderr?: string | null;
 }
 
+function suiteStdin(suite: GeneratedSuite): string {
+  return JSON.stringify({
+    methodName: suite.methodName,
+    cases: suite.cases,
+    comparison: suite.comparison,
+    resultFromArg: suite.resultFromArg,
+    className: suite.className,
+    inputAdapter: suite.inputAdapter,
+    resultAdapter: suite.resultAdapter,
+    validator: suite.validator,
+  });
+}
+
 async function loadOrGenerateSuite(problemId: number): Promise<{ suite: GeneratedSuite; cached: boolean }> {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -55,11 +72,16 @@ async function loadOrGenerateSuite(problemId: number): Promise<{ suite: Generate
     .from(problemTestcases)
     .where(eq(problemTestcases.problemId, problemId))
     .limit(1)) as ProblemTestcase[];
+
+  const problemRows = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
+  const problem = problemRows[0];
+  if (!problem) throw new TRPCError({ code: "NOT_FOUND", message: "Problem not found" });
+
   if (cachedRows[0]) {
     const cached = cachedRows[0].suiteJson as GeneratedSuite;
     // Backwards-compat: older cache rows may use `args` instead of `input`.
     // Normalize so the harness + UI never see the legacy shape.
-    const normalized = {
+    const normalized: GeneratedSuite = {
       ...cached,
       cases: (cached.cases || []).map((c) => {
         const co = c as Record<string, unknown>;
@@ -71,12 +93,30 @@ async function loadOrGenerateSuite(problemId: number): Promise<{ suite: Generate
         return fallback ? { ...c, input: fallback as unknown[] } : c;
       }),
     };
+    const official = buildOfficialExampleSuite({
+      titleSlug: problem.titleSlug,
+      titleEn: problem.titleEn,
+      contentEn: problem.contentEn,
+      contentZh: problem.contentZh,
+      difficulty: problem.difficulty,
+      codeSnippetsJson: problem.codeSnippetsJson,
+      exampleTestcases: problem.exampleTestcases,
+    });
+    if (official) {
+      for (const key of [
+        "comparison",
+        "resultFromArg",
+        "className",
+        "inputAdapter",
+        "resultAdapter",
+        "validator",
+      ] as const) {
+        const value = official[key];
+        if (value !== undefined) Object.assign(normalized, { [key]: value });
+      }
+    }
     return { suite: normalized, cached: true };
   }
-
-  const problemRows = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
-  const problem = problemRows[0];
-  if (!problem) throw new TRPCError({ code: "NOT_FOUND", message: "Problem not found" });
 
   const suite = await generateTestcaseSuite({
     titleSlug: problem.titleSlug,
@@ -93,7 +133,7 @@ async function loadOrGenerateSuite(problemId: number): Promise<{ suite: Generate
   if (suite.referenceSolution && suite.referenceSolution.trim().length > 0) {
     try {
       const refSource = buildHarness({ language: "python", userCode: suite.referenceSolution });
-      const refStdin = JSON.stringify({ methodName: suite.methodName, cases: suite.cases });
+      const refStdin = suiteStdin(suite);
       const refRun = await runUserCode({
         language: "python",
         source: refSource,
@@ -140,7 +180,7 @@ async function judgeOnce(
   suite: GeneratedSuite,
 ): Promise<JudgeOutcome> {
   const source = buildHarness({ language, userCode });
-  const stdin = JSON.stringify({ methodName: suite.methodName, cases: suite.cases });
+  const stdin = suiteStdin(suite);
   const run = await runUserCode({ language, source, stdin, timeoutMs: 5000 });
 
   if (run.reason === "compile_error") {
@@ -202,6 +242,26 @@ async function judgeOnce(
         (parsed.parseErrors.length
           ? "\nUnparsed lines: " + parsed.parseErrors.slice(0, 3).join(" | ")
           : ""),
+    };
+  }
+
+  const expectedTotal = suite.cases.length;
+  const uniqueIndexes = new Set(parsed.cases.map((item) => item.i));
+  const reportedPassed = parsed.cases.filter((item) => item.ok).length;
+  const protocolIsConsistent =
+    parsed.summary.total === expectedTotal &&
+    parsed.summary.passed === reportedPassed &&
+    parsed.cases.length === expectedTotal &&
+    uniqueIndexes.size === expectedTotal &&
+    parsed.cases.every((item) => item.i >= 0 && item.i < expectedTotal);
+  if (!protocolIsConsistent) {
+    return {
+      verdict: "runtime_error",
+      passedCount: 0,
+      totalCount: expectedTotal,
+      runtimeMs: run.timeMs,
+      cases: parsed.cases,
+      stderr: `${run.stderr || ""}\nInvalid or contradictory judge protocol output.`.trim(),
     };
   }
 
